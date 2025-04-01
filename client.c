@@ -22,6 +22,7 @@ int main(int argc, char** argv){
     if (!res){
         perror("Error creating a windows\n");
     }
+
     loop();
     end();
     return 0;
@@ -32,7 +33,6 @@ bool init(){
     if( !success ) {
        SDL_Log("Initialization failed! Cuz: %s\n", SDL_GetError());
     }
- 
     return success;
  }
 
@@ -52,10 +52,10 @@ void loop() {
             running = false;
             }
         }
-        SDL_FillSurfaceRect( gScreenSurface,
-            NULL,
-            SDL_MapSurfaceRGB( gScreenSurface, 0xFF, 0xFF, 0xFF) );
+        SDL_FillSurfaceRect(gScreenSurface, NULL, SDL_MapSurfaceRGB(gScreenSurface, 0xFF, 0xFF, 0xFF));
+        SDL_UpdateWindowSurface( gWindow );
     }
+    
 }
 
 void end() {
