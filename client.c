@@ -22,11 +22,10 @@ int main(int argc, char** argv){
     if (!res){
         perror("Error creating a windows\n");
     }
-    sleep(4);
+    loop();
     end();
     return 0;
 }
-
 
 bool init(){
     bool success = SDL_Init(SDL_INIT_VIDEO);
