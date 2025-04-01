@@ -63,5 +63,5 @@ void end() {
     SDL_DestroyWindow(gWindow);
     gWindow = NULL;
     gScreenSurface = NULL;
-    SDL_QUIT();
+    SDL_Quit();
 }
