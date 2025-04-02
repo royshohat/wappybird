@@ -86,7 +86,7 @@ void loop(entArr* entArray) {
     bool running = true;
     // SDL_Rect dvd_rect = {100,100,150,75};
     // ------>
-    // | (pygame) SDL
+    // |    SDL
     // v
     while(running){
         SDL_Event e;
@@ -113,8 +113,6 @@ void draw(entArr* entArray){
 void update(entArr* entArray){ 
     // update
     SDL_UpdateWindowSurface( gWindow );
-    //                                          m / s
-    // 100 [pix/sec^2] / 30 [frame/sec] = (100 / 30) [pix/sec] * [frame]  
     
     for(int i=0; i<entArray->birdArrSize; i++){
         // update velocity
@@ -124,18 +122,6 @@ void update(entArr* entArray){
         entArray->birdArr[i].rect.y = round(entArray->birdArr[i].subPixY);
     }
 
-    // update location
-
-    
-    // 30 FPS: sleep (1/30 * 1000 [ms])
-    // 
-    // dvd_rect.x+=vx; 
-    // dvd_rect.y+=vy;
-    // // (x,y) ----width--
-    // // |
-    
-    // if(dvd_rect.y + dvd_rect.h  > HEIGHT || dvd_rect.y < 0) vy *= -1;
-    // if(dvd_rect.x + dvd_rect.w  > WIDTH || dvd_rect.x < 0) vx *= -1;
 }
 
 void end() {
