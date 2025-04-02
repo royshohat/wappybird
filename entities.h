@@ -12,7 +12,8 @@ typedef struct{
     direction d;
     int coolDown; //milisecs until you can shot
     SDL_Rect rect; // hitbox
-    int vy;
+    double vy;
+    double subPixY;
 } bird;
 
 typedef struct{

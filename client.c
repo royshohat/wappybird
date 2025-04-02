@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <math.h>
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -12,7 +13,7 @@
 
 #define HEIGHT 540
 #define WIDTH 960
-#define FPS 2
+#define FPS 60
 #define BIRDWIDTH HEIGHT/12
 #define BIRDHEIGHT HEIGHT/15
 
@@ -24,7 +25,7 @@ bool init();
 bool make_window();
 void loop(entArr* entArray);
 void draw(entArr* entArray);
-void update();
+void update(entArr* entArray);
 void init_entArrs(entArr *entArray);
 void end(); // clean up
 
@@ -59,6 +60,7 @@ bool init(){
 
     //birds part
     entArray->birdArr = malloc(sizeof(bird) *entArray->birdArrSize);
+    
     void* pos = entArray->birdArr;
     int x;
     
@@ -66,11 +68,10 @@ bool init(){
         x = WIDTH/10 + i*( ((8*WIDTH/10)-BIRDWIDTH) / (entArray->birdArrSize - 1) );
         SDL_Rect rect = {x ,HEIGHT/3, BIRDWIDTH, BIRDHEIGHT};
 
-        bird b = {i+1, 3, i % 2 == 0 ? RIGHT : LEFT, 0, rect};
+        bird b = {i+1, 3, i % 2 == 0 ? RIGHT : LEFT, 0, rect, 0, rect.y};
         *((bird*) pos) = b;
         pos += sizeof(bird);
     }
-    //
 
 
  }
@@ -96,7 +97,7 @@ void loop(entArr* entArray) {
             }
         }
         draw(entArray);
-        update();
+        update(entArray);
         SDL_Delay(1000/FPS); // casts to int
     }
     
@@ -109,9 +110,23 @@ void draw(entArr* entArray){
     }
 }
 
-void update(){ 
+void update(entArr* entArray){ 
     // update
     SDL_UpdateWindowSurface( gWindow );
+    //                                          m / s
+    // 100 [pix/sec^2] / 30 [frame/sec] = (100 / 30) [pix/sec] * [frame]  
+    
+    for(int i=0; i<entArray->birdArrSize; i++){
+        // update velocity
+        entArray->birdArr[i].vy+=(G*0.5/FPS);
+        entArray->birdArr[i].subPixY += entArray->birdArr[i].vy; 
+        // update location from sub-pixel
+        entArray->birdArr[i].rect.y = round(entArray->birdArr[i].subPixY);
+    }
+
+    // update location
+
+    
     // 30 FPS: sleep (1/30 * 1000 [ms])
     // 
     // dvd_rect.x+=vx; 
