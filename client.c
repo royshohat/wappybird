@@ -27,6 +27,7 @@ void loop(entArr* entArray);
 void draw(entArr* entArray);
 void update(entArr* entArray);
 void init_entArrs(entArr *entArray);
+
 void end(); // clean up
 
 

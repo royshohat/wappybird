@@ -1,5 +1,10 @@
 {
     "files.associations": {
-        "sdl_rect.h": "c"
-    }
+        "inet.h": "c",
+        "types.h": "c",
+        "string.h": "c",
+        "stdio.h": "c",
+        "_stdio.h": "c",
+        "complex": "c"
+    },
 }
