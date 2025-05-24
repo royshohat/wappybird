@@ -3,9 +3,43 @@
 #include <string.h>
 #include <unistd.h>    // for close()
 #include <arpa/inet.h> // for sockaddr_in, inet_pton()
+#include <sys/time.h>
 
 #define SERVER_IP "127.0.0.1" // Change this to the server's IP address
 #define SERVER_PORT 8080      // Change this to the server's port
+
+
+long long get_timestamp_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    
+    // Convert seconds and microseconds to milliseconds
+    return (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000);
+}
+
+int ping(int sockfd) {
+    // get current timestamp
+    char buf[10];
+    long long send_time = get_timestamp_ms();
+    send(sockfd, "Ping!", 6, 0);
+    // get server time
+
+    long long recv_time = get_timestamp_ms();
+    recv(sockfd, buf, sizeof(buf), 0);
+
+
+    return (recv_time - send_time) / 2;
+
+    //Basic steps for time sync:
+        // Client sends request to server, noting the time T1.
+        // Server receives, notes T2, sends current server time T3 back.
+        // Client receives reply, notes T4.
+        // Estimate round-trip time (RTT) and offset.
+    // Formulas:
+        // RTT ≈ (T4 - T1) - (T3 - T2)
+        // Offset ≈ ((T2 - T1) + (T3 - T4)) / 2
+}
+
 
 int main() {
     int sockfd;
@@ -37,27 +71,15 @@ int main() {
         return 1;
     }
 
-    printf("Connected to server %s:%d\n", SERVER_IP, SERVER_PORT);
+    printf("Connected to server! %s:%d\n", SERVER_IP, SERVER_PORT);
 
-    // Send message to the server
-    if (send(sockfd, message, strlen(message), 0) < 0) {
-        perror("Send failed");
-        close(sockfd);
-        return 1;
+    printf("pinging 10 times..\n");
+    for (int i = 0; i < 10; i++) {
+        int p = ping(sockfd);
+        printf("ping: %dms\n", p);
+        sleep(1);
     }
-
-    printf("Message sent: %s\n", message);
-
-    // Receive response from server
-    int bytes_received = recv(sockfd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received < 0) {
-        perror("Receive failed");
-        close(sockfd);
-        return 1;
-    }
-
-    buffer[bytes_received] = '\0'; // Null-terminate the received data
-    printf("Response from server: %s\n", buffer);
+    
 
     // Close the socket
     close(sockfd);
