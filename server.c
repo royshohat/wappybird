@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <signal.h>
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
@@ -45,7 +46,7 @@ int main() {
     server_addr.sin_addr.s_addr = INADDR_ANY;
     server_addr.sin_port = htons(PORT); 
     
-    if(bind(sockfd, &server_addr, sizeof(server_addr))==-1){
+    if(bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr))==-1){
         perror ("Error binding address.");
         close(sockfd);
         return 1;
@@ -63,21 +64,18 @@ int main() {
     int client_fd;
     struct sockaddr client;
     socklen_t len;
-    
+    printf("Accepting clients...\n");
     while(!0){
-        if((client_fd = accept(sockfd, (struct sockaddr *) &server_addr, &len) == -1)){
+        // wait for players to connect
+        if(((client_fd = accept(sockfd, (struct sockaddr *) &server_addr, &len)) == -1)){
             return 1; 
             // this means that the server is closed
-            // via Ctrl - c OR some kind of other error with accpet.
+            // via Ctrl - c OR some kind of other error with accept.
         }
         printf("Got A Conncection!");
         client_fds[player_count++] = client_fd;
         pthread_create(&id, NULL, handle_client, &client_fd);
-        // wait for players to connect
     }
-    // while (!0){
-    //     // handle client for each connection.
-    // }
 }
 
 void* handle_client(void* args) {
