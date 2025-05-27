@@ -97,7 +97,7 @@ void* handle_client(void* args) {
     char buf[10];
     // time_sync(client_fd);
 
-    while (1) {
+    for (int i = 0; i < 40; i++) {
         // wait for client ping
         if (recv(client_fd, buf, sizeof(buf), 0) == -1) {
             printf("Client closed!\n");

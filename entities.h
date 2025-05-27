@@ -6,7 +6,7 @@ typedef enum  {
     RIGHT = 1
 } direction;
 
-typedef struct{
+typedef struct {
     int id; 
     int hearts;
     direction d;

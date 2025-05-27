@@ -24,8 +24,10 @@ int ping(int sockfd) {
     send(sockfd, "Ping!", 6, 0);
     // get server time
 
-    long long recv_time = get_timestamp_ms();
     recv(sockfd, buf, sizeof(buf), 0);
+    long long recv_time = get_timestamp_ms();
+    
+
 
 
     return (recv_time - send_time) / 2;
@@ -74,10 +76,9 @@ int main() {
     printf("Connected to server! %s:%d\n", SERVER_IP, SERVER_PORT);
 
     printf("pinging 10 times..\n");
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 40; i++) {
         int p = ping(sockfd);
         printf("ping: %dms\n", p);
-        sleep(1);
     }
     
 
