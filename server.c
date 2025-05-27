@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #define TCP_PORT 8080
 #define UDP_PORT 9000
@@ -22,67 +23,78 @@ void* handle_client(void* arg);
 void cleanup(int sig);
 void handler(int sigint);
 void* ctrlCmech(void* socket_fd);
+void init_socket(int *sockfd, struct sockaddr_in* server_addr);
 
-int main() {
-    // listen for new connections
-    //struct sigaction sa;
-    
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1) {
-        perror("Error creating a socket.");
-        return 1;
-    }
-    
-    /* nice to have, dont care if this fails.*/
-  // (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
-  // delete in production.
-    
-    signal(SIGINT, handler);
-    pthread_t id;
-    pthread_create(&id, NULL, ctrlCmech, &sockfd);
+typedef struct {
+    int sockfd;
+    struct sockaddr_in* server_addr;
+} thread_args;
 
-    struct sockaddr_in server_addr;
+typedef struct {
+    int id; 
+    int fd;
+    double offset_ms;
+    bool is_ready;
+    // bird...
+} client_t; 
+
+void* accept_clients(void* args) {
+    thread_args* t_args = (thread_args*) args;
+    int sockfd = t_args->sockfd;
+    struct sockaddr_in* server_addr = t_args->server_addr;
     
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET; 
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(TCP_PORT); 
-    
-    if(bind(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr))==-1){
-        perror ("Error binding address.");
-        close(sockfd);
-        return 1;
-    }
-    
-    if(listen(sockfd, MAX_PLAYER_COUNT)==-1){
-        perror ("Error Listening to socket.");
-        close(sockfd);
-        return 1;
-    }
+
     int player_count = 0;
     // int* client_fds = malloc(sizeof(int) * MAX_PLAYER_COUNT);
-    int client_fds[sizeof(int) * MAX_PLAYER_COUNT];
-    int client_fd;
-    struct sockaddr client;
+    client_t clients[MAX_PLAYER_COUNT];
+
+    pthread_t id;
     socklen_t len;
+    
     printf("Accepting clients...\n");
     while(!0){
-        // wait for players to connect
-        if(((client_fd = accept(sockfd, (struct sockaddr *) &server_addr, &len)) == -1)){
-            printf("OhNo!!\n");
-            return 1; 
-            // this means that the server is closed
-            // via Ctrl - c OR some kind of other error with accept.
-        }
-        printf("Got A Conncection!\n");
-        //fflush(stdout);
         if (player_count == MAX_PLAYER_COUNT) {
             printf("MAX PLAYER REACHED.\n");
-            continue;
+            break;
         }
-        client_fds[player_count++] = client_fd;
-        pthread_create(&id, NULL, handle_client, &client_fd);
+        // wait for players to connect
+        if(((clients[player_count].fd = accept(sockfd, (struct sockaddr *) server_addr, &len)) == -1)){
+            printf("Error accepting client!\n");
+            // this means that the server is closed
+            // via Ctrl - c OR some kind of other error with accept.
+            return 1; 
+        }
+        printf("Got A Conncection!\n");
+        pthread_create(&id, NULL, handle_client, &clients[player_count].fd);
+        player_count++;
     }
+}
+
+int main() {
+
+    int sockfd;
+    struct sockaddr_in server_addr;
+    pthread_t id;
+
+    // delete in production
+    signal(SIGINT, handler);
+    pthread_create(&id, NULL, ctrlCmech, &sockfd);
+
+
+    init_socket(&sockfd, &server_addr);
+    
+    // pthread_create;
+    thread_args args;
+    // &sockfd
+    args.sockfd = sockfd;
+    args.server_addr = &server_addr;
+
+    accept_clients((void*)&args);
+    
+    // while !(everyone ready) {
+   // wait 
+// }
+    // kill thread accept_client
     printf("End..\n");
 }
 
@@ -119,4 +131,32 @@ void* ctrlCmech(void* socket_fd) {
 
 void handler(int sig){
     flag = 1;
+}
+
+void init_socket(int *sockfd, struct sockaddr_in* server_addr) {
+    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (*sockfd == -1) {
+        perror("Error creating a socket.");
+        return 1;
+    }
+        /* nice to have, dont care if this fails.*/
+  // (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
+  // delete in production.
+
+    memset(server_addr, 0, sizeof(*server_addr));
+    server_addr->sin_family = AF_INET; 
+    server_addr->sin_addr.s_addr = INADDR_ANY;
+    server_addr->sin_port = htons(TCP_PORT); 
+    
+    if(bind(*sockfd, (struct sockaddr *)server_addr, sizeof(*server_addr))==-1){
+        perror ("Error binding address.");
+        close(*sockfd);
+        return 1;
+    }
+    // listen for new connections
+    if(listen(*sockfd, MAX_PLAYER_COUNT)==-1){
+        perror ("Error Listening to socket.");
+        close(*sockfd);
+        return 1;
+    }
 }
