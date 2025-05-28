@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -16,18 +17,20 @@
 // &ptr -> (int**)
 // pthread_join(id, (void**)&ptr);
 
-int flag = 0;
+
+volatile sig_atomic_t flag = 0;
 const int MAX_PLAYER_COUNT = 2;
 
 void* handle_client(void* arg);
 void cleanup(int sig);
 void handler(int sigint);
 void* ctrlCmech(void* socket_fd);
-void init_socket(int *sockfd, struct sockaddr_in* server_addr);
+int init_socket(int *sockfd, struct sockaddr_in* server_addr);
 
 typedef struct {
     int sockfd;
     struct sockaddr_in* server_addr;
+    client_t* clients; // pointer to array
 } thread_args;
 
 typedef struct {
@@ -40,15 +43,17 @@ typedef struct {
 
 void* accept_clients(void* args) {
     thread_args* t_args = (thread_args*) args;
+
     int sockfd = t_args->sockfd;
     struct sockaddr_in* server_addr = t_args->server_addr;
+    client_t* clients = t_args->clients; // assume size of the array is MAX_PLAYER_COUNT
     
-
-    int player_count = 0;
-    // int* client_fds = malloc(sizeof(int) * MAX_PLAYER_COUNT);
-    client_t clients[MAX_PLAYER_COUNT];
-
+    int player_count = 0; // index..
+    memset(clients, 0, MAX_PLAYER_COUNT * sizeof(client_t));
+    
     pthread_t id;
+    int client_id = 1;
+    int client_fd;
     socklen_t len;
     
     printf("Accepting clients...\n");
@@ -58,15 +63,24 @@ void* accept_clients(void* args) {
             break;
         }
         // wait for players to connect
-        if(((clients[player_count].fd = accept(sockfd, (struct sockaddr *) server_addr, &len)) == -1)){
-            printf("Error accepting client!\n");
-            // this means that the server is closed
-            // via Ctrl - c OR some kind of other error with accept.
-            return 1; 
+        if(((client_fd = accept(sockfd, (struct sockaddr *) server_addr, &len)) < 0)){
+            if (errno == EBADF) {
+                // server shutdown via Ctrl - c.
+                printf("Everyone is ready!! \nListening socket closed, shutting down accept loop.\n");
+            } else {
+                // some kind of other error with accept.
+                perror("accept failed");
+            }
+           
+            return NULL; 
         }
+        
+        clients[player_count].fd = client_fd;
+        clients[player_count].id = client_id;
         printf("Got A Conncection!\n");
         pthread_create(&id, NULL, handle_client, &clients[player_count].fd);
         player_count++;
+        client_id++;
     }
 }
 
@@ -77,25 +91,42 @@ int main() {
     pthread_t id;
 
     // delete in production
-    signal(SIGINT, handler);
+    // terminate the server
+    signal(SIGINT, handler); 
     pthread_create(&id, NULL, ctrlCmech, &sockfd);
 
 
-    init_socket(&sockfd, &server_addr);
+    int code = init_socket(&sockfd, &server_addr);
+    if (code != 0) return code;
     
     // pthread_create;
     thread_args args;
+
+    client_t clients[MAX_PLAYER_COUNT];
     // &sockfd
     args.sockfd = sockfd;
     args.server_addr = &server_addr;
+    args.clients = clients;
+    pthread_create(&id, NULL, accept_clients, (void*)&args);
 
-    accept_clients((void*)&args);
+    
     
     // while !(everyone ready) {
-   // wait 
+    // wait 
+    sleep(10); 
 // }
     // kill thread accept_client
-    printf("End..\n");
+    client_t empty_client;
+    memset(&empty_client, 0, sizeof(client_t));
+    for (int i=0; memcmp((void*)&clients[i], &empty_client, sizeof(client_t)) != 0; i++) {
+        print(clients[i]);
+    }
+    
+    printf("End.\n");
+}
+
+void print(client_t c) {
+    printf("Client %d:\nfd:%d\nis_ready%d\noffset_ms:%d\n\n",c.id, c.fd, c.is_ready, c.offset_ms);
 }
 
 void time_sync(int client_fd) {
@@ -125,7 +156,7 @@ void* ctrlCmech(void* socket_fd) {
     while(!flag);  
     printf("Ctrl-C termination Successful.\n");
     close(sockfd);
-    exit(1); // terminate the process
+    exit(1); // early exit, terminate the process
     return NULL;
 }
 
@@ -133,7 +164,7 @@ void handler(int sig){
     flag = 1;
 }
 
-void init_socket(int *sockfd, struct sockaddr_in* server_addr) {
+int init_socket(int *sockfd, struct sockaddr_in* server_addr) {
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (*sockfd == -1) {
         perror("Error creating a socket.");
@@ -159,4 +190,5 @@ void init_socket(int *sockfd, struct sockaddr_in* server_addr) {
         close(*sockfd);
         return 1;
     }
+    return 0;
 }
