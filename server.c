@@ -8,9 +8,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "network.h"
+#include <fcntl.h>
+#include <limits.h>
 
-#define TCP_PORT 8080
-#define UDP_PORT 9000
+
+#include "game.h"
+
+volatile sig_atomic_t flag = 0;
 
 // int* ptr
 // ptr -> (int*)
@@ -18,14 +23,7 @@
 // pthread_join(id, (void**)&ptr);
 
 
-volatile sig_atomic_t flag = 0;
-const int MAX_PLAYER_COUNT = 2;
 
-void* handle_client(void* arg);
-void cleanup(int sig);
-void handler(int sigint);
-void* ctrlCmech(void* socket_fd);
-int init_socket(int *sockfd, struct sockaddr_in* server_addr);
 
 typedef struct {
     int sockfd;
@@ -33,13 +31,67 @@ typedef struct {
     client_t* clients; // pointer to array
 } thread_args;
 
-typedef struct {
-    int id; 
-    int fd;
-    double offset_ms;
-    bool is_ready;
-    // bird...
-} client_t; 
+
+void* handle_client(void* arg);
+void cleanup(int sig);
+void handler(int sigint);
+void* ctrlCmech(void* socket_fd);
+int init_server(int *sockfd, struct sockaddr_in* server_addr);
+void print_client(client_t c);
+void* accept_clients(void* args);
+
+
+int main() {
+
+    int sockfd;
+    struct sockaddr_in server_addr;
+    pthread_t id;
+
+    // delete in production
+    // terminate the server
+    signal(SIGINT, handler); 
+    pthread_create(&id, NULL, ctrlCmech, &sockfd);
+
+
+    int code = init_server(&sockfd, &server_addr);
+    if (code != 0) return code;
+    
+    // pthread_create;
+    thread_args args;
+
+    client_t clients[MAX_PLAYER_COUNT];
+    memset(clients, 0, MAX_PLAYER_COUNT * sizeof(client_t));
+    // &sockfd
+    args.sockfd = sockfd;
+    args.server_addr = &server_addr;
+    args.clients = clients;
+    pthread_create(&id, NULL, accept_clients, (void*)&args);
+
+    // while !(everyone ready) {
+    // wait 
+    sleep(15); 
+    // }
+
+    // kill thread accept_client
+    close(sockfd);
+    // print clients
+    client_t empty_client;
+    memset(&empty_client, 0, sizeof(client_t));
+
+    for (int i=0; (memcmp((void*)&clients[i], &empty_client, sizeof(client_t)) != 0) && i < MAX_PLAYER_COUNT; i++) {
+        print_client(clients[i]);
+    }
+    
+    printf("End.\n");
+}
+
+void print_client(client_t c) {
+    printf("Client %d:\nfd:%d\nis_ready%d\noffset_ms:%d\n\n",c.id, c.fd, c.is_ready, c.offset_ms);
+}
+
+void time_sync(int client_fd) {
+    
+}
 
 void* accept_clients(void* args) {
     thread_args* t_args = (thread_args*) args;
@@ -52,7 +104,7 @@ void* accept_clients(void* args) {
     memset(clients, 0, MAX_PLAYER_COUNT * sizeof(client_t));
     
     pthread_t id;
-    int client_id = 1;
+    int c_id = 1;
     int client_fd;
     socklen_t len;
     
@@ -76,79 +128,68 @@ void* accept_clients(void* args) {
         }
         
         clients[player_count].fd = client_fd;
-        clients[player_count].id = client_id;
-        printf("Got A Conncection!\n");
-        pthread_create(&id, NULL, handle_client, &clients[player_count].fd);
+        clients[player_count].id = c_id;
+        printf("Got A Conncection! (fd: %d)\n", client_fd);
+        pthread_create(&id, NULL, handle_client, &clients[player_count]);
         player_count++;
-        client_id++;
+        c_id++;
     }
-}
-
-int main() {
-
-    int sockfd;
-    struct sockaddr_in server_addr;
-    pthread_t id;
-
-    // delete in production
-    // terminate the server
-    signal(SIGINT, handler); 
-    pthread_create(&id, NULL, ctrlCmech, &sockfd);
-
-
-    int code = init_socket(&sockfd, &server_addr);
-    if (code != 0) return code;
-    
-    // pthread_create;
-    thread_args args;
-
-    client_t clients[MAX_PLAYER_COUNT];
-    // &sockfd
-    args.sockfd = sockfd;
-    args.server_addr = &server_addr;
-    args.clients = clients;
-    pthread_create(&id, NULL, accept_clients, (void*)&args);
-
-    
-    
-    // while !(everyone ready) {
-    // wait 
-    sleep(10); 
-// }
-    // kill thread accept_client
-    client_t empty_client;
-    memset(&empty_client, 0, sizeof(client_t));
-    for (int i=0; memcmp((void*)&clients[i], &empty_client, sizeof(client_t)) != 0; i++) {
-        print(clients[i]);
-    }
-    
-    printf("End.\n");
-}
-
-void print(client_t c) {
-    printf("Client %d:\nfd:%d\nis_ready%d\noffset_ms:%d\n\n",c.id, c.fd, c.is_ready, c.offset_ms);
-}
-
-void time_sync(int client_fd) {
-    
 }
 
 
 void* handle_client(void* args) {
     // args = (int)
-    int client_fd = *(int*)args;
-    char buf[10];
+    client_t* client = (client_t*)args;
     // time_sync(client_fd);
 
-    for (int i = 0; i < 40; i++) {
-        // wait for client ping
-        if (recv(client_fd, buf, sizeof(buf), 0) == -1) {
-            printf("Client closed!\n");
-            break;
+    char data[MAX_DATA_LENGTH];
+    packet_type t;
+    uint32_t size;
+    ssize_t n;
+    
+    while(!0) {
+        recv(client->fd, (void*) &t, 1, 0);
+        recv(client->fd, (void*) &size, 4, 0);
+        if (size > MAX_DATA_LENGTH) {
+            printf("packet too large!\n");
+            // clear recv buffer.
+            // set socket flag to non blocking
+            int flags = fcntl(client->fd, F_GETFL, 0) | O_NONBLOCK;
+            fcntl(client->fd, F_SETFL, flags);
+            
+            do {
+                n = recv(client->fd, data, sizeof(data), 0);
+            } while (n > 0);
+            // the buffer is now empty :)
+            // unset block flag
+            fcntl(client->fd, F_SETFL, flags & (O_NONBLOCK ^ INT_MAX));
+            continue;
         }
-        send(client_fd, "Pong!", 6, 0);
-    } 
-    close(client_fd);
+        
+        recv(client->fd, (void*) data, size, 0);
+
+        switch (t) {
+            case REQ_READY:
+                if(data[0] != READY && data[0] != UNREADY) {
+                    printf("Unexpected Parsing Error..\n");
+                    continue;
+                }
+                
+                client->is_ready = data[0] == READY ? true : false;
+                break; 
+            case BROADCAST_READY:
+                break;
+        } 
+    }
+    // for (int i = 0; i < 40; i++) {
+    //     // wait for client ping
+    //     if (recv(client->fd, buf, sizeof(buf), 0) == -1) {
+    //         printf("Client closed!\n");
+    //         break;
+    //     }
+    //     send(client->fd, "Pong!", 6, 0);
+    // } 
+    close(client->fd);
 }
 
 void* ctrlCmech(void* socket_fd) {
@@ -164,14 +205,15 @@ void handler(int sig){
     flag = 1;
 }
 
-int init_socket(int *sockfd, struct sockaddr_in* server_addr) {
+int init_server(int *sockfd, struct sockaddr_in* server_addr) {
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (*sockfd == -1) {
         perror("Error creating a socket.");
         return 1;
     }
         /* nice to have, dont care if this fails.*/
-  // (void)setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
+    int enabled = 1;
+    (void)setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
   // delete in production.
 
     memset(server_addr, 0, sizeof(*server_addr));
