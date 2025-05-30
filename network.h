@@ -4,6 +4,9 @@
 #define READY 1
 #define UNREADY 2
 
+#define SERVER_IP "127.0.0.1" // Change this to the server's IP address
+#define SERVER_PORT 8080      // Change this to the server's port
+
 // Headers
 #define SIZE_PACKET_TYPE 1
 #define SIZE_PACKET_LEN 4 
