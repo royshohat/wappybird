@@ -12,11 +12,15 @@
 int main() {
     int sockfd;
     struct sockaddr_in server_addr;
-    init_client(&sockfd, &server_addr);
-    printf("Connected to server! %s:%d\n", SERVER_IP, SERVER_PORT);
+    if(init_client(&sockfd, &server_addr)!=0) {
+        return 1;
+    }
+    
+    printf("Connected to server! %s:%d (fd: %d)\n", SERVER_IP, SERVER_PORT, sockfd);
     printf("Pinging..\n");
     int pings[100];
-    for (int i=0 ; i<100; i++) {
+    for (int i=0 ; i<3; i++) {
+        sleep(1);
         int latency = ping(sockfd);
         printf("ping: %d\n", latency);
         pings[i] = latency;

@@ -64,7 +64,7 @@ int init_server(int *sockfd, struct sockaddr_in* server_addr) {
     int enabled = 1;
     (void)setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
   // delete in production.
-
+    
     memset(server_addr, 0, sizeof(*server_addr));
     server_addr->sin_family = AF_INET; 
     server_addr->sin_addr.s_addr = INADDR_ANY;

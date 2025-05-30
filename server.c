@@ -62,7 +62,8 @@ int main() {
 
     // delete in production
     // terminate the server
-    signal(SIGINT, handler); 
+    signal(SIGINT, handler);
+    signal(SIGPIPE, SIG_IGN); 
     pthread_create(&id, NULL, ctrlCmech, &sockfd);
 
 
@@ -83,7 +84,7 @@ int main() {
 
     // while !(everyone ready) { 
     // wait 
-    sleep(15); 
+    sleep(150); 
     // }
 
     // kill thread accept_client
@@ -118,6 +119,8 @@ void* accept_clients(void* args) {
     unsigned int c_id = 1;
     int client_fd;
     socklen_t len;
+
+    struct sockaddr_in client_addr;
     
     printf("Accepting clients...\n");
     while(!0){
@@ -128,7 +131,7 @@ void* accept_clients(void* args) {
         }
         pthread_mutex_unlock(&lock_client);
         // wait for players to connect
-        if(((client_fd = accept(sockfd, (struct sockaddr *) server_addr, &len)) < 0)){
+        if(((client_fd = accept(sockfd, NULL, &len)) < 0)){
             if (errno == EBADF) {
                 // server shutdown via Ctrl - c.
                 printf("Everyone is ready!! \nListening socket closed, shutting down accept loop.\n");
@@ -181,7 +184,7 @@ void* handle_client(void* args) {
     size_t* ptrPlayer_count = t_args->ptrPlayer_count;
 
     char data[MAX_DATA_LENGTH];
-    packet_type type;
+    packet_type type = 0;
     uint32_t size;
     // TODO: staging and validating.
     
@@ -197,8 +200,9 @@ void* handle_client(void* args) {
             
             continue;
         }
-        
-        recv(prtThisClient->fd, (void*) data, size, 0);
+        printf("got a packet! type: %d, size: %d\n", type, size);
+        if (size > 0) 
+            recv(prtThisClient->fd, (void*) data, size, 0);
 
         switch (type) {
 
