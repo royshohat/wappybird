@@ -6,6 +6,7 @@
 #include <sys/time.h>
 
 #include "util.h"
+#include "network.h"
 #include "game.h"
 
 
