@@ -22,22 +22,16 @@ volatile sig_atomic_t flag = 0;
 // &ptr -> (int**)
 // pthread_join(id, (void**)&ptr);
 
-
-
-
 typedef struct {
     int sockfd;
     struct sockaddr_in* server_addr;
     client_t* clients; // pointer to array
-} thread_args;
+} thread_args; // accpet_clients arguments
 
 
 void* handle_client(void* arg);
-void cleanup(int sig);
 void handler(int sigint);
 void* ctrlCmech(void* socket_fd);
-int init_server(int *sockfd, struct sockaddr_in* server_addr);
-void print_client(client_t c);
 void* accept_clients(void* args);
 
 
@@ -56,7 +50,6 @@ int main() {
     int code = init_server(&sockfd, &server_addr);
     if (code != 0) return code;
     
-    // pthread_create;
     thread_args args;
 
     client_t clients[MAX_PLAYER_COUNT];
@@ -85,13 +78,7 @@ int main() {
     printf("End.\n");
 }
 
-void print_client(client_t c) {
-    printf("Client %d:\nfd:%d\nis_ready%d\noffset_ms:%d\n\n",c.id, c.fd, c.is_ready, c.offset_ms);
-}
 
-void time_sync(int client_fd) {
-    
-}
 
 void* accept_clients(void* args) {
     thread_args* t_args = (thread_args*) args;
@@ -146,7 +133,7 @@ void* handle_client(void* args) {
     packet_type t;
     uint32_t size;
     ssize_t n;
-    
+    // TODO: staging and validating.
     while(!0) {
         recv(client->fd, (void*) &t, 1, 0);
         recv(client->fd, (void*) &size, 4, 0);
@@ -203,34 +190,4 @@ void* ctrlCmech(void* socket_fd) {
 
 void handler(int sig){
     flag = 1;
-}
-
-int init_server(int *sockfd, struct sockaddr_in* server_addr) {
-    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (*sockfd == -1) {
-        perror("Error creating a socket.");
-        return 1;
-    }
-        /* nice to have, dont care if this fails.*/
-    int enabled = 1;
-    (void)setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
-  // delete in production.
-
-    memset(server_addr, 0, sizeof(*server_addr));
-    server_addr->sin_family = AF_INET; 
-    server_addr->sin_addr.s_addr = INADDR_ANY;
-    server_addr->sin_port = htons(TCP_PORT); 
-    
-    if(bind(*sockfd, (struct sockaddr *)server_addr, sizeof(*server_addr))==-1){
-        perror ("Error binding address.");
-        close(*sockfd);
-        return 1;
-    }
-    // listen for new connections
-    if(listen(*sockfd, MAX_PLAYER_COUNT)==-1){
-        perror ("Error Listening to socket.");
-        close(*sockfd);
-        return 1;
-    }
-    return 0;
 }
