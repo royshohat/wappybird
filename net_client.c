@@ -26,7 +26,7 @@ int main() {
         pings[i] = latency;
     }
     int sum = 0;
-    for (int i=0 ; i<100; i++) {
+    for (int i=0 ; i<3; i++) {
         sum += pings[i];
     }
     printf("Average ping: %d\n", sum/100);

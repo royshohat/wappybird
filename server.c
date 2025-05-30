@@ -98,6 +98,7 @@ int main() {
     }
     
     printf("End.\n");
+    return 0;
 }
 
 
@@ -112,8 +113,7 @@ void* accept_clients(void* args) {
 
     pthread_mutex_lock(&lock_client);
     memset(clients, 0, MAX_PLAYER_COUNT * sizeof(client_t));
-    pthread_mutex_unlock(&lock_client
-);
+    pthread_mutex_unlock(&lock_client);
     
     pthread_t id;
     unsigned int c_id = 1;
@@ -125,7 +125,7 @@ void* accept_clients(void* args) {
     printf("Accepting clients...\n");
     while(!0){
         pthread_mutex_lock(&lock_client);
-        if (*ptrPlayer_count == MAX_PLAYER_COUNT) {
+        if (*ptrPlayer_count >= MAX_PLAYER_COUNT) {
             printf("MAX PLAYER REACHED.\n");
             break;
         }
@@ -155,7 +155,6 @@ void* accept_clients(void* args) {
             printf("something bad happend\n");
             return NULL;
         }
-
         clients[free_idx].fd = client_fd;
         clients[free_idx].id = c_id;
         clients[free_idx].is_active = true;
@@ -177,32 +176,36 @@ void* accept_clients(void* args) {
 
 
 void* handle_client(void* args) {
-    
+    pthread_mutex_lock(&lock_client);
     handle_client_args* t_args = (handle_client_args*)args;
     client_t* ptrClients = t_args->ptrClients;
-    client_t* prtThisClient = t_args->ptrThisClient;
+    client_t* ptrThisClient = t_args->ptrThisClient;
     size_t* ptrPlayer_count = t_args->ptrPlayer_count;
 
     char data[MAX_DATA_LENGTH];
     packet_type type = 0;
     uint32_t size;
+    long n;
     // TODO: staging and validating.
-    
+    pthread_mutex_unlock(&lock_client);
     while(!0) {
         // receive the packet, according to protcol
 
-        recv(prtThisClient->fd, (void*) &type, 1, 0);
-        recv(prtThisClient->fd, (void*) &size, 4, 0);
+        n = recv(ptrThisClient->fd, (void*) &type, 1, 0);
+        if (n < 0) {
+            printf("fd: %d\n", ptrThisClient->fd);
+        }
+        recv(ptrThisClient->fd, (void*) &size, 4, 0);
+        if (n == 0) break;
         if (size > MAX_DATA_LENGTH) {
             printf("packet too large!\n");
             // clear recv buffer.
-            clear_socket_buffer(prtThisClient->fd);
+            clear_socket_buffer(ptrThisClient->fd);
             
             continue;
         }
-        printf("got a packet! type: %d, size: %d\n", type, size);
         if (size > 0) 
-            recv(prtThisClient->fd, (void*) data, size, 0);
+            recv(ptrThisClient->fd, (void*) data, size, 0);
 
         switch (type) {
 
@@ -210,7 +213,7 @@ void* handle_client(void* args) {
                 data[0] = RESP_PING;
                 *(uint32_t*)&data[1] = SIZE_RESP_PING;
 
-                send(prtThisClient->fd, data, SIZE_HEADER + SIZE_RESP_PING, 0);
+                send(ptrThisClient->fd, data, SIZE_HEADER + SIZE_RESP_PING, 0);
                 break;
 
             case REQ_READY:
@@ -219,7 +222,7 @@ void* handle_client(void* args) {
                     continue;
                 }
 
-                prtThisClient->is_ready = data[0] == READY ? true : false;
+                ptrThisClient->is_ready = data[0] == READY ? true : false;
 
                 pthread_mutex_lock(&lock_client);
                 // TODO: buffer, size constants
@@ -227,20 +230,22 @@ void* handle_client(void* args) {
                 // Send Broadcast Ready
                 data[0] = BROADCAST_READY;
                 *(uint32_t*)&data[1] = SIZE_BROADCAST_READY;
-                data[5] = prtThisClient->is_ready ? READY: UNREADY;
-                *(uint32_t*)&data[6] = prtThisClient->id;
+                data[5] = ptrThisClient->is_ready ? READY: UNREADY;
+                *(uint32_t*)&data[6] = ptrThisClient->id;
 
                 for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-                    if (!ptrClients[i].is_active || &ptrClients[i] == prtThisClient) continue;
+                    if (!ptrClients[i].is_active || &ptrClients[i] == ptrThisClient) continue;
                     send(ptrClients[i].fd, data, SIZE_HEADER + SIZE_BROADCAST_READY, 0);
                 }
+                pthread_mutex_unlock(&lock_client);
 
                 break; 
             
             case REQ_LEAVE:
-                close(prtThisClient->fd);
+                close(ptrThisClient->fd);
+                return NULL;
                 (*ptrPlayer_count)--;
-                prtThisClient->is_active = false;
+                ptrThisClient->is_active = false;
                 break;
             
             default:
@@ -248,7 +253,7 @@ void* handle_client(void* args) {
                 break;
         }
     } 
-    
+   return NULL; 
 
 }
 
