@@ -13,9 +13,20 @@ int main() {
     int sockfd;
     struct sockaddr_in server_addr;
     init_client(&sockfd, &server_addr);
-
     printf("Connected to server! %s:%d\n", SERVER_IP, SERVER_PORT);
-    
+    printf("Pinging..\n");
+    int pings[100];
+    for (int i=0 ; i<100; i++) {
+        int latency = ping(sockfd);
+        printf("ping: %d\n", latency);
+        pings[i] = latency;
+    }
+    int sum = 0;
+    for (int i=0 ; i<100; i++) {
+        sum += pings[i];
+    }
+    printf("Average ping: %d\n", sum/100);
+    printf("Time taken: %d\n", sum); 
     // exit
     close(sockfd);
     return 0;

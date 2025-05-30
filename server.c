@@ -1,21 +1,27 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <signal.h>
-#include <pthread.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+#include <signal.h>
+#include <pthread.h>
+
 #include "network.h"
-#include <fcntl.h>
-#include <limits.h>
-
-
+#include "util.h"
 #include "game.h"
 
+
 volatile sig_atomic_t flag = 0;
+
+pthread_mutex_t lock_client; 
+
+pthread_mutex_t lock_stage;
+stage game_stage = STAGE_WAIT_FOR_PLAYERS;
 
 // int* ptr
 // ptr -> (int*)
@@ -25,8 +31,15 @@ volatile sig_atomic_t flag = 0;
 typedef struct {
     int sockfd;
     struct sockaddr_in* server_addr;
-    client_t* clients; // pointer to array
-} thread_args; // accpet_clients arguments
+    client_t* ptrClients; // pointer to array
+    size_t* ptrPlayer_count;
+} accept_client_args; // accept_clients thread arguments
+
+typedef struct {
+    client_t* ptrClients; // pointer to array
+    client_t* ptrThisClient; // pointer to element in the array describing the current client
+    size_t* ptrPlayer_count;
+} handle_client_args; // accept_clients thread arguments
 
 
 void* handle_client(void* arg);
@@ -36,10 +49,16 @@ void* accept_clients(void* args);
 
 
 int main() {
-
     int sockfd;
     struct sockaddr_in server_addr;
     pthread_t id;
+
+    
+    if (pthread_mutex_init(&lock_client, NULL) != 0 || 
+        pthread_mutex_init(&lock_stage, NULL) != 0) {
+        printf("Error initializing mutex..\n");
+        return 1;
+    }
 
     // delete in production
     // terminate the server
@@ -50,17 +69,19 @@ int main() {
     int code = init_server(&sockfd, &server_addr);
     if (code != 0) return code;
     
-    thread_args args;
+    accept_client_args args;
 
-    client_t clients[MAX_PLAYER_COUNT];
-    memset(clients, 0, MAX_PLAYER_COUNT * sizeof(client_t));
-    // &sockfd
+    client_t clients[MAX_PLAYER_COUNT]; // mutex
+    size_t player_count = 0;            // mutex
+    
     args.sockfd = sockfd;
     args.server_addr = &server_addr;
-    args.clients = clients;
+    args.ptrClients = clients;
+    args.ptrPlayer_count = &player_count;
+    
     pthread_create(&id, NULL, accept_clients, (void*)&args);
 
-    // while !(everyone ready) {
+    // while !(everyone ready) { 
     // wait 
     sleep(15); 
     // }
@@ -81,26 +102,31 @@ int main() {
 
 
 void* accept_clients(void* args) {
-    thread_args* t_args = (thread_args*) args;
+    accept_client_args* t_args = (accept_client_args*) args;
 
     int sockfd = t_args->sockfd;
     struct sockaddr_in* server_addr = t_args->server_addr;
-    client_t* clients = t_args->clients; // assume size of the array is MAX_PLAYER_COUNT
-    
-    int player_count = 0; // index..
+    client_t* clients = t_args->ptrClients; // assume size of the array is MAX_PLAYER_COUNT
+    size_t* ptrPlayer_count = t_args->ptrPlayer_count;
+
+    pthread_mutex_lock(&lock_client);
     memset(clients, 0, MAX_PLAYER_COUNT * sizeof(client_t));
+    pthread_mutex_unlock(&lock_client
+);
     
     pthread_t id;
-    int c_id = 1;
+    unsigned int c_id = 1;
     int client_fd;
     socklen_t len;
     
     printf("Accepting clients...\n");
     while(!0){
-        if (player_count == MAX_PLAYER_COUNT) {
+        pthread_mutex_lock(&lock_client);
+        if (*ptrPlayer_count == MAX_PLAYER_COUNT) {
             printf("MAX PLAYER REACHED.\n");
             break;
         }
+        pthread_mutex_unlock(&lock_client);
         // wait for players to connect
         if(((client_fd = accept(sockfd, (struct sockaddr *) server_addr, &len)) < 0)){
             if (errno == EBADF) {
@@ -113,70 +139,113 @@ void* accept_clients(void* args) {
            
             return NULL; 
         }
-        
-        clients[player_count].fd = client_fd;
-        clients[player_count].id = c_id;
+        pthread_mutex_lock(&lock_client);
+        //contruction
+        int free_idx = -1;
+        for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+            if (!clients[i].is_active) {
+                free_idx = i;
+                break;
+            }
+        }
+        if (free_idx == -1) {
+            printf("something bad happend\n");
+            return NULL;
+        }
+
+        clients[free_idx].fd = client_fd;
+        clients[free_idx].id = c_id;
+        clients[free_idx].is_active = true;
         printf("Got A Conncection! (fd: %d)\n", client_fd);
-        pthread_create(&id, NULL, handle_client, &clients[player_count]);
-        player_count++;
+
+        handle_client_args client_args;
+        client_args.ptrClients = clients;
+        client_args.ptrPlayer_count = ptrPlayer_count;
+        client_args.ptrThisClient = &clients[free_idx];
+         
+        pthread_create(&id, NULL, handle_client, (void*)&client_args);
+        (*ptrPlayer_count)++;
+        pthread_mutex_unlock(&lock_client);
+
         c_id++;
     }
+    return NULL;
 }
 
 
 void* handle_client(void* args) {
-    // args = (int)
-    client_t* client = (client_t*)args;
-    // time_sync(client_fd);
+    
+    handle_client_args* t_args = (handle_client_args*)args;
+    client_t* ptrClients = t_args->ptrClients;
+    client_t* prtThisClient = t_args->ptrThisClient;
+    size_t* ptrPlayer_count = t_args->ptrPlayer_count;
 
     char data[MAX_DATA_LENGTH];
-    packet_type t;
+    packet_type type;
     uint32_t size;
-    ssize_t n;
     // TODO: staging and validating.
+    
     while(!0) {
-        recv(client->fd, (void*) &t, 1, 0);
-        recv(client->fd, (void*) &size, 4, 0);
+        // receive the packet, according to protcol
+
+        recv(prtThisClient->fd, (void*) &type, 1, 0);
+        recv(prtThisClient->fd, (void*) &size, 4, 0);
         if (size > MAX_DATA_LENGTH) {
             printf("packet too large!\n");
             // clear recv buffer.
-            // set socket flag to non blocking
-            int flags = fcntl(client->fd, F_GETFL, 0) | O_NONBLOCK;
-            fcntl(client->fd, F_SETFL, flags);
+            clear_socket_buffer(prtThisClient->fd);
             
-            do {
-                n = recv(client->fd, data, sizeof(data), 0);
-            } while (n > 0);
-            // the buffer is now empty :)
-            // unset block flag
-            fcntl(client->fd, F_SETFL, flags & (O_NONBLOCK ^ INT_MAX));
             continue;
         }
         
-        recv(client->fd, (void*) data, size, 0);
+        recv(prtThisClient->fd, (void*) data, size, 0);
 
-        switch (t) {
+        switch (type) {
+
+            case REQ_PING:
+                data[0] = RESP_PING;
+                *(uint32_t*)&data[1] = SIZE_RESP_PING;
+
+                send(prtThisClient->fd, data, SIZE_HEADER + SIZE_RESP_PING, 0);
+                break;
+
             case REQ_READY:
                 if(data[0] != READY && data[0] != UNREADY) {
                     printf("Unexpected Parsing Error..\n");
                     continue;
                 }
+
+                prtThisClient->is_ready = data[0] == READY ? true : false;
+
+                pthread_mutex_lock(&lock_client);
+                // TODO: buffer, size constants
                 
-                client->is_ready = data[0] == READY ? true : false;
+                // Send Broadcast Ready
+                data[0] = BROADCAST_READY;
+                *(uint32_t*)&data[1] = SIZE_BROADCAST_READY;
+                data[5] = prtThisClient->is_ready ? READY: UNREADY;
+                *(uint32_t*)&data[6] = prtThisClient->id;
+
+                for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+                    if (!ptrClients[i].is_active || &ptrClients[i] == prtThisClient) continue;
+                    send(ptrClients[i].fd, data, SIZE_HEADER + SIZE_BROADCAST_READY, 0);
+                }
+
                 break; 
-            case BROADCAST_READY:
+            
+            case REQ_LEAVE:
+                close(prtThisClient->fd);
+                (*ptrPlayer_count)--;
+                prtThisClient->is_active = false;
                 break;
-        } 
-    }
-    // for (int i = 0; i < 40; i++) {
-    //     // wait for client ping
-    //     if (recv(client->fd, buf, sizeof(buf), 0) == -1) {
-    //         printf("Client closed!\n");
-    //         break;
-    //     }
-    //     send(client->fd, "Pong!", 6, 0);
-    // } 
-    close(client->fd);
+            
+            default:
+                printf("Not Yet Handled.\n");
+                break;
+        }
+    } 
+    
+
 }
 
 void* ctrlCmech(void* socket_fd) {

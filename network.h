@@ -1,6 +1,26 @@
 #define MAX_DATA_LENGTH 1024
 #define TCP_PORT 8080
 #define UDP_PORT 9000
+#define READY 1
+#define UNREADY 2
+
+// Headers
+#define SIZE_PACKET_TYPE 1
+#define SIZE_PACKET_LEN 4 
+#define SIZE_HEADER (SIZE_PACKET_TYPE + SIZE_PACKET_LEN)
+
+// Ready Packets
+#define SIZE_IS_READY 1
+#define SIZE_ID 4
+
+// Ping
+#define SIZE_REQ_PING 0
+#define SIZE_RESP_PING 0
+
+#define SIZE_REQ_READY (SIZE_IS_READY)
+#define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
+
+// Game Packets
 
 
 typedef enum  {
@@ -8,33 +28,37 @@ typedef enum  {
     // anytime
     REQ_LEAVE, 
     BROADCAST_LEAVE, 
-
-    // stage 1
-    REQ_JOIN,
-    BROADCAST_JOIN,
-
-    // stage 2
     REQ_PING,
     RESP_PING,
+
+    // stage 1 - wait for players to join or get ready
+    REQ_JOIN,
+    BROADCAST_JOIN,
+    REQ_READY,
+    BROADCAST_READY,
+
+    // stage 2 -  before the game starts, sync time with all clients.
     REQ_TIMESTAMP, 
     RESP_TIMESTAMP,
     
-    // stage 4
-    REQ_READY,
-    BROADCAST_READY,
+    // stage 3 - broadcast a start game
+    BROADCAST_START_GAME, // the server sends at the begining of the game
     
-    // stage 5
-    SEND_GAME_START, // the server sends at the begining of the game
-    
-    // IN GAME
+    // stage 4 - IN GAME
     REQ_UPDATE_STATE, // client notifies server of keyboard press for example
     BROADCAST_UPDATE_STATE, // server updates other clients
 
     // POST GAME (?)
 } packet_type;
 
-# define READY 1
-# define UNREADY 2
+typedef enum {
+    STAGE_WAIT_FOR_PLAYERS,
+    STAGE_SYNC_TIME,
+    STAGE_START_GAME,
+    STAGE_GAME, // in game
+    
+    
+} stage;
 
 // packet structure
 // -------------------------------------
@@ -49,6 +73,8 @@ typedef enum  {
 // *REQ_READY* 
 // total size = 1 byte
 // READY or UNREADY (1 byte)
+
+
 
 // *BROADCAST_READY*
 // total_size = 5 bytes
