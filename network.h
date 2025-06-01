@@ -20,6 +20,9 @@
 #define SIZE_REQ_PING 0
 #define SIZE_RESP_PING 0
 
+// Leave
+#define SIZE_REQ_LEAVE 0
+
 #define SIZE_REQ_READY (SIZE_IS_READY)
 #define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
 
@@ -29,27 +32,26 @@
 typedef enum  {
 
     // anytime
-    REQ_LEAVE, 
-    BROADCAST_LEAVE, 
-    REQ_PING,
-    RESP_PING,
+    TYPE_REQ_LEAVE, 
+    TYPE_BROADCAST_LEAVE, 
+    TYPE_REQ_PING,
+    TYPE_RESP_PING,
 
     // stage 1 - wait for players to join or get ready
-    REQ_JOIN,
-    BROADCAST_JOIN,
-    REQ_READY,
-    BROADCAST_READY,
+    TYPE_REQ_JOIN,
+    TYPE_BROADCAST_JOIN,
+    TYPE_REQ_READY,
+    TYPE_BROADCAST_READY,
 
     // stage 2 -  before the game starts, sync time with all clients.
-    REQ_TIMESTAMP, 
-    RESP_TIMESTAMP,
-    
+    TYPE_REQ_TIMESTAMP, 
+    TYPE_RESP_TIMESTAMP,
     // stage 3 - broadcast a start game
-    BROADCAST_START_GAME, // the server sends at the begining of the game
+    TYPE_BROADCAST_START_GAME, // the server sends at the begining of the game
     
     // stage 4 - IN GAME
-    REQ_UPDATE_STATE, // client notifies server of keyboard press for example
-    BROADCAST_UPDATE_STATE, // server updates other clients
+    TYPE_REQ_UPDATE_STATE, // client notifies server of keyboard press for example
+    TYPE_BROADCAST_UPDATE_STATE, // server updates other clients
 
     // POST GAME (?)
 } packet_type;

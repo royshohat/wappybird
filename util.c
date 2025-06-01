@@ -30,13 +30,13 @@ int ping(int sockfd) {
     char req[SIZE_HEADER + SIZE_REQ_PING];
     long long send_time = get_timestamp_ms();
 
-    req[0] = REQ_PING;
+    req[0] = TYPE_REQ_PING;
     *(uint32_t*) &req[1] = SIZE_REQ_PING;
     send(sockfd, req, sizeof(req), 0);
     // get server time
     
     char resp[SIZE_HEADER + SIZE_RESP_PING];
-    resp[1] = RESP_PING;
+    resp[1] = TYPE_RESP_PING;
     *(uint32_t*) &resp[1] = SIZE_RESP_PING;
     
     recv(sockfd, resp, sizeof(resp), 0);
@@ -110,6 +110,11 @@ int init_client(int* sockfd, struct sockaddr_in* server_addr) {
         close(*sockfd);
         return 1;
     }
+    int n;
+    char buf[1];
+    usleep(250 * 1000);
+    n = recv(*sockfd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
+    if (n == 0) return 1; // connection closed (refused.)
     return 0;
 }
 
