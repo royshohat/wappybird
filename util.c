@@ -85,7 +85,7 @@ int init_server(int *sockfd, struct sockaddr_in* server_addr) {
 }
 
 
-int init_client(int* sockfd, struct sockaddr_in* server_addr) {
+int init_client(int* sockfd, struct sockaddr_in* server_addr, int id, client_t* clients_arr) {
 
     // Create socket
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -112,9 +112,20 @@ int init_client(int* sockfd, struct sockaddr_in* server_addr) {
     }
     int n;
     char buf[1];
-    usleep(250 * 1000);
+    usleep(250 * 1000); // qureter of a sec
     n = recv(*sockfd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
     if (n == 0) return 1; // connection closed (refused.)
+
+    // recv clients array
+    char buf[SIZE_HEADER];
+    if(buf[0] != TYPE_RESP_UPDATE_ARRAY) return -1;
+    recv(sockfd, buf, sizeof(buf), 0);
+    recv(sockfd, clients_arr, *(size_t*) &buf[1], 0);
+
+    // recv my id
+    recv(sockfd, buf, sizeof(buf), 0);
+    recv(sockfd, &id, *(size_t*) &buf[1], 0);
+
     return 0;
 }
 

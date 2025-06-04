@@ -17,13 +17,15 @@ int main() {
     bool running = true;
     packet_type type = 0;
     uint32_t size;
+    size_t id;
     char data[MAX_DATA_LENGTH];
     client_t clients[MAX_PLAYER_COUNT] = {0};
     
     
-    if(init_client(&sockfd, &server_addr)!=0) {
+    if(init_client(&sockfd, &server_addr, &id, &clients)!=0) {
         return 1;
     }
+
     printf("Connected to server! %s:%d (fd: %d)\n", SERVER_IP, SERVER_PORT, sockfd);
 
     while (running) {

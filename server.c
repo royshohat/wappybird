@@ -163,7 +163,7 @@ void wait_ready(client_t* clients, size_t* player_count) {
 
 void* accept_clients(void* args) {
     accept_client_args* t_args = (accept_client_args*) args;
-
+    char buf[SIZE_HEADER];
     int sockfd = t_args->sockfd;
     struct sockaddr_in* server_addr = t_args->server_addr;
     client_t* clients = t_args->ptrClients; // assume size of the array is MAX_PLAYER_COUNT
@@ -242,11 +242,22 @@ void* accept_clients(void* args) {
         client_args->ptrClients = clients;
         client_args->ptrPlayer_count = ptrPlayer_count;
         client_args->ptrThisClient = &clients[free_idx];
-         
+        
         (*ptrPlayer_count)++;
         // printf("Creating handle client thread: \nplayer_count: %d\n fd:%d\n", *ptrPlayer_count, client_args->ptrThisClient->fd);
 
+        buf[0] = TYPE_REQ_TIMESTAMP;
+        buf[1] = SIZE_RESP_UPDATE_ARRAY;
+
+        send(client_fd, buf, sizeof(buf), 0);
+        send(client_fd, (void*)clients, MAX_PLAYER_COUNT * sizeof(client_t), 0);
+        send(client_fd, (void*)&clients[free_idx].id, sizeof(size_t), 0);
+
         pthread_mutex_unlock(&lock_client);
+         
+        //TODO: finish arrray sync and test that if finish 
+
+        pthread_create(&id, NULL, accept_clients, (void*)&args);
 
         c_id++;
     }

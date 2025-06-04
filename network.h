@@ -30,8 +30,9 @@
 #define SIZE_REQ_READY (SIZE_IS_READY)
 #define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
 
-// Game Packets
+#define SIZE_RESP_UPDATE_ARRAY (MAX_PLAYER_COUNT * sizeof(client_t))
 
+// Game Packets
 
 typedef enum  {
 
@@ -40,8 +41,8 @@ typedef enum  {
     TYPE_BROADCAST_LEAVE, 
     TYPE_REQ_PING,
     TYPE_RESP_PING,
+    TYPE_RESP_ID,
 
-    TYPE_REQ_UPDATE_ARRAY, 
     TYPE_RESP_UPDATE_ARRAY, 
     // stage 1 - wait for players to join or get ready
 
@@ -104,3 +105,11 @@ typedef enum {
 // TYPE_RESP_TIMESTAMP,
 // total size = 8 bytes
 // the client timestamp
+
+// TYPE_RESP_ID
+// total size = 4
+// size_t id
+
+// TYPE_RESP_UPDATE_ARRAY
+// total size = MAX_PLAYER_COUNT * sizeof (client_t)
+// client_t* clients_array
