@@ -9,7 +9,7 @@
 typedef struct {
     unsigned int id; 
     int fd;
-    double offset_ms;
+    int offset_ms;
     bool is_ready;
     bool is_active;
     // another thing yet to come like bird and such...

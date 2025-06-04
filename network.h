@@ -23,6 +23,10 @@
 // Leave
 #define SIZE_REQ_LEAVE 0
 
+// Timestamp
+#define SIZE_REQ_TIMESTAMP 8
+#define SIZE_RESP_TIMESTAMP 8
+
 #define SIZE_REQ_READY (SIZE_IS_READY)
 #define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
 
@@ -37,7 +41,10 @@ typedef enum  {
     TYPE_REQ_PING,
     TYPE_RESP_PING,
 
+    TYPE_REQ_UPDATE_ARRAY, 
+    TYPE_RESP_UPDATE_ARRAY, 
     // stage 1 - wait for players to join or get ready
+
     TYPE_REQ_JOIN,
     TYPE_BROADCAST_JOIN,
     TYPE_REQ_READY,
@@ -62,7 +69,6 @@ typedef enum {
     STAGE_START_GAME,
     STAGE_GAME, // in game
     
-    
 } stage;
 
 // packet structure
@@ -75,19 +81,26 @@ typedef enum {
 
 // PACKET DATA STRUCTE
 
-// *REQ_READY* 
+// *TYPE_REQ_READY* 
 // total size = 1 byte
 // READY or UNREADY (1 byte)
 
 
 
-// *BROADCAST_READY*
+// *TYPE_BROADCAST_READY*
 // total_size = 5 bytes
 // READY or UNREADY (1 byte) 
 // client_id (4 byte) 
 
-// *SEND_GAME_START*
+// *TYPE_START_GAME*
 // total size = ?? bytes
 // the receiver client_id (4 bytes)
 // array data (?? bytes)
 
+// TYPE_REQ_TIMESTAMP, 
+// total size = 8 bytes
+// the server timestamp
+
+// TYPE_RESP_TIMESTAMP,
+// total size = 8 bytes
+// the client timestamp
