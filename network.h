@@ -6,7 +6,6 @@
 
 #define SERVER_IP "127.0.0.1" // Change this to the server's IP address
 #define SERVER_PORT 8080      // Change this to the server's port
-
 // Headers
 #define SIZE_PACKET_TYPE 1
 #define SIZE_PACKET_LEN 4 
@@ -22,6 +21,11 @@
 
 // Leave
 #define SIZE_REQ_LEAVE 0
+#define SIZE_BROADCAST_LEAVE 4
+
+// Join
+#define SIZE_REQ_JOIN 0
+#define SIZE_BROADCAST_JOIN 4
 
 // Timestamp
 #define SIZE_REQ_TIMESTAMP 8
@@ -30,14 +34,19 @@
 #define SIZE_REQ_READY (SIZE_IS_READY)
 #define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
 
-#define SIZE_RESP_UPDATE_ARRAY (MAX_PLAYER_COUNT * sizeof(client_t))
+// Update Array
+#define SIZE_RESP_UPDATE_ARRAY (MAX_PLAYER_COUNT * sizeof(player_t))
+
+// Id
+#define SIZE_RESP_ID 4
+
 
 // Game Packets
 
 typedef enum  {
 
     // anytime
-    TYPE_REQ_LEAVE, 
+    TYPE_REQ_LEAVE,
     TYPE_BROADCAST_LEAVE, 
     TYPE_REQ_PING,
     TYPE_RESP_PING,
@@ -46,7 +55,8 @@ typedef enum  {
     TYPE_RESP_UPDATE_ARRAY, 
     // stage 1 - wait for players to join or get ready
 
-    TYPE_REQ_JOIN,
+    TYPE_REQ_JOIN, 
+    TYPE_RESP_JOIN,
     TYPE_BROADCAST_JOIN,
     TYPE_REQ_READY,
     TYPE_BROADCAST_READY,
@@ -86,17 +96,11 @@ typedef enum {
 // total size = 1 byte
 // READY or UNREADY (1 byte)
 
-
-
 // *TYPE_BROADCAST_READY*
 // total_size = 5 bytes
 // READY or UNREADY (1 byte) 
 // client_id (4 byte) 
 
-// *TYPE_START_GAME*
-// total size = ?? bytes
-// the receiver client_id (4 bytes)
-// array data (?? bytes)
 
 // TYPE_REQ_TIMESTAMP, 
 // total size = 8 bytes
@@ -106,6 +110,7 @@ typedef enum {
 // total size = 8 bytes
 // the client timestamp
 
+
 // TYPE_RESP_ID
 // total size = 4
 // size_t id
@@ -113,3 +118,12 @@ typedef enum {
 // TYPE_RESP_UPDATE_ARRAY
 // total size = MAX_PLAYER_COUNT * sizeof (client_t)
 // client_t* clients_array
+
+
+// TYPE_BROADCAST_JOIN
+// total size = ?
+// client_t client
+
+
+//TYPE_BROADCAST_LEAVE
+// total size = 4

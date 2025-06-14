@@ -8,10 +8,12 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 #include "game.h"
 #include "network.h"
 #include "util.h"
+
 
 long long get_timestamp_ms() {
     struct timeval tv;
@@ -21,9 +23,21 @@ long long get_timestamp_ms() {
     return (tv.tv_sec * 1000LL) + (tv.tv_usec / 1000);
 }
 
-void print_client(client_t c) {
-    printf("Client %d:\nfd:%d\nis_ready%d\noffset_ms:%d\n\n",c.id, c.fd, c.is_ready, (int)c.offset_ms);
+void print_player(player_t player) {
+    printf("Player #%d:\n" \
+           "    id:%d\n" \
+           "    is_ready:%d\n" \
+           "    is_alive:%d\n" \
+           "    Client:\n" \
+           "        fd:%d\n" \
+           "        offset_ms:%d\n" \
+           "        is_active:%d\n\n",
+         player.id, player.id, player.is_ready, player.is_alive, 
+         player.client.fd, player.client.offset_ms,
+         player.client.is_active
+    );
 }
+
 
 int ping(int sockfd) {
     // get current timestamp
@@ -41,9 +55,8 @@ int ping(int sockfd) {
     
     recv(sockfd, resp, sizeof(resp), 0);
     long long recv_time = get_timestamp_ms();
-
+    
     return (recv_time - send_time) / 2;
-
     //Basic steps for time sync:
         // Client sends request to server, noting the time T1.
         // Server receives, notes T2, sends current server time T3 back.
@@ -53,6 +66,105 @@ int ping(int sockfd) {
         // RTT ≈ (T4 - T1) - (T3 - T2)
         // Offset ≈ ((T2 - T1) + (T3 - T4)) / 2
 }
+
+int sync_timestamp(int fd) {
+    // returns offset in ms between
+    char header[SIZE_HEADER];
+    // TODO
+}
+
+void send_packet(int count, int fd, packet_type type, ...) {
+    va_list ap;
+    va_start(ap, type);
+    char buf[SIZE_HEADER + MAX_DATA_LENGTH];
+    int size;
+    buf[0] = type;
+    // send_packet(sockfd, TYPE_REQ_TIMESTAMP, READY, 4)
+    switch (type) {
+    //same order as th enum
+        // anytime
+        
+        case TYPE_REQ_JOIN:
+            size = SIZE_REQ_JOIN;
+            break;
+
+        case TYPE_REQ_LEAVE:
+            size = SIZE_REQ_LEAVE;
+            break;
+        case TYPE_BROADCAST_LEAVE:
+            size = SIZE_BROADCAST_LEAVE;
+            *(buf + SIZE_HEADER) = va_arg(ap, int); // id
+            break; 
+        case TYPE_REQ_PING:
+            size = SIZE_REQ_PING;
+            break;
+        case TYPE_RESP_PING:
+            size = SIZE_RESP_PING;
+            break;
+        case TYPE_RESP_ID:
+            size = SIZE_RESP_ID;
+            *(buf + SIZE_HEADER) = va_arg(ap, int); // id
+            break;
+        case TYPE_RESP_UPDATE_ARRAY:
+            size = SIZE_RESP_UPDATE_ARRAY;
+            memcpy(buf + SIZE_HEADER, va_arg(ap, void*), MAX_PLAYER_COUNT * sizeof(player_t));
+            break;
+        // stage 1
+        case TYPE_REQ_READY:
+            size = SIZE_REQ_READY;
+            *(buf + SIZE_HEADER) = va_arg(ap, int); // first field (READY/UNREADY)
+            break;
+
+        case TYPE_BROADCAST_READY:
+            size = SIZE_BROADCAST_READY;
+            *(buf + SIZE_HEADER) = va_arg(ap, int);
+            *(uint32_t*) (buf + SIZE_HEADER + 1) = va_arg(ap, int); 
+            // ^^^ id
+            break;
+        default:
+            perror("ERROR: No Implementation for Type.\n");
+    }
+    *(int*) (buf + 1) = size;
+    
+    send(fd, buf, size + SIZE_HEADER, 0);
+    va_end(ap);
+}
+
+int recv_packet(int count, int fd, ...) {
+    // TODO: Change this function into "parse_packet"
+    // this function gets the pointer to the data buffer, the packet type, 
+    // and pointers to all fields.
+    // the function will assign values to all
+    // fields according to the data in the buffer 
+    // returns nothing.
+    va_list ap;
+    va_start(ap, fd);
+    
+    char header[SIZE_HEADER];
+    char data[MAX_DATA_LENGTH];
+    recv(fd, header, SIZE_HEADER, 0);
+    recv(fd, data, *(uint32_t*) (header+1), 0);
+
+    switch (header[0]) {
+        case TYPE_RESP_JOIN:
+            return 0;
+        case TYPE_BROADCAST_READY:
+            if (count != 4) {
+                printf("Invalid argument count for recv_packet\n");
+                return 1;
+            }
+            int* ready = va_arg(ap, int*);
+            int* id = va_arg(ap, int*);
+            *ready = *data;
+            *id = *((int*) data + 1);
+            break;
+        
+    }
+
+
+    va_end(ap);
+}
+
 
 int init_server(int *sockfd, struct sockaddr_in* server_addr) {
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -85,7 +197,7 @@ int init_server(int *sockfd, struct sockaddr_in* server_addr) {
 }
 
 
-int init_client(int* sockfd, struct sockaddr_in* server_addr, int id, client_t* clients_arr) {
+int init_client(int* sockfd, struct sockaddr_in* server_addr, int* id, player_t* players_arr) {
 
     // Create socket
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -111,20 +223,26 @@ int init_client(int* sockfd, struct sockaddr_in* server_addr, int id, client_t* 
         return 1;
     }
     int n;
-    char buf[1];
+    char buf[SIZE_HEADER];
     usleep(250 * 1000); // qureter of a sec
     n = recv(*sockfd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
     if (n == 0) return 1; // connection closed (refused.)
 
     // recv clients array
-    char buf[SIZE_HEADER];
+
+    recv(*sockfd, buf, sizeof(buf), 0);
     if(buf[0] != TYPE_RESP_UPDATE_ARRAY) return -1;
-    recv(sockfd, buf, sizeof(buf), 0);
-    recv(sockfd, clients_arr, *(size_t*) &buf[1], 0);
+    n = recv(*sockfd, (void*)players_arr, *(uint32_t*) &buf[1], 0);
+
+    for (int i = 0; i < n; i++) {
+        printf("%02X ", (unsigned char)buf[i]);  // Print as hex
+    }
+    printf("\n");
 
     // recv my id
-    recv(sockfd, buf, sizeof(buf), 0);
-    recv(sockfd, &id, *(size_t*) &buf[1], 0);
+    recv(*sockfd, buf, sizeof(buf), 0);
+
+    recv(*sockfd, id, *(uint32_t*) &buf[1], 0);
 
     return 0;
 }

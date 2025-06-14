@@ -6,3 +6,7 @@ net_client:
 
 server:
 	gcc server.c util.c -o server -Wall -Wextra -pedantic
+
+dbg_server:
+	gcc server.c util.c -o server -Wall -Wextra -pedantic -g
+

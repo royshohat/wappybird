@@ -7,10 +7,19 @@
 
 
 typedef struct {
-    unsigned int id; 
+    // client_data
     int fd;
     int offset_ms;
-    bool is_ready;
     bool is_active;
-    // another thing yet to come like bird and such...
 } client_t; 
+
+typedef struct 
+{
+    client_t client;
+    // player_data
+    unsigned int id; 
+    bool is_ready;
+    bool is_alive;
+    // another thing yet to come like bird and such...
+} player_t;
+
