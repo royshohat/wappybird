@@ -31,13 +31,14 @@
 #define SIZE_REQ_TIMESTAMP 8
 #define SIZE_RESP_TIMESTAMP 8
 
+// Ready
 #define SIZE_REQ_READY (SIZE_IS_READY)
 #define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
 
 // Update Array
 #define SIZE_RESP_UPDATE_ARRAY (MAX_PLAYER_COUNT * sizeof(player_t))
 
-// Id
+// ID
 #define SIZE_RESP_ID 4
 
 

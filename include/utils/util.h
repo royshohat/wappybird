@@ -1,7 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "game.h"
+#include "common/game.h"
 
 long long get_timestamp_ms();
 int ping(int sockfd);

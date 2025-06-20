@@ -10,9 +10,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#include "game.h"
-#include "network.h"
-#include "util.h"
+#include "common/game.h"
+#include "networking/network.h"
+#include "utils/util.h"
 
 
 long long get_timestamp_ms() {
@@ -131,8 +131,8 @@ void send_packet(int count, int fd, packet_type type, ...) {
 }
 
 int recv_packet(int count, int fd, ...) {
-    // TODO: Change this function into "parse_packet"
-    // this function gets the pointer to the data buffer, the packet type, 
+    // function return 
+    // this function receives a packet, the packet type, 
     // and pointers to all fields.
     // the function will assign values to all
     // fields according to the data in the buffer 
