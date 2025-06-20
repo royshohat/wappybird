@@ -4,3 +4,4 @@ server
 test
 test.c
 .vscode/
+tmp/
