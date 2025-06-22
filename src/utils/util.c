@@ -101,8 +101,8 @@ void send_packet(int count, int fd, packet_type type, ...) {
         case TYPE_RESP_PING:
             size = SIZE_RESP_PING;
             break;
-        case TYPE_RESP_ID:
-            size = SIZE_RESP_ID;
+        case TYPE_RESP_JOIN:
+            size = SIZE_RESP_JOIN;
             *(buf + SIZE_HEADER) = va_arg(ap, int); // id
             break;
         case TYPE_RESP_UPDATE_ARRAY:
