@@ -14,6 +14,8 @@
 #include "networking/network.h"
 #include "utils/util.h"
 
+#include "net_const.h"
+
 
 long long get_timestamp_ms() {
     struct timeval tv;
