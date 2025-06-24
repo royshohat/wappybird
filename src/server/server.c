@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <limits.h>
 
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
@@ -14,9 +15,12 @@
 
 #include <fcntl.h>
 
-#include "network.h"
-#include "util.h"
-#include "game.h"
+#include "networking/net.h" 
+#include "networking/network.h"
+#include "utils/util.h"
+#include "common/game.h"
+#include "common/game_const.h"
+#include "networking/net_const.h"
 
 
 volatile sig_atomic_t flag = 0;
@@ -73,7 +77,7 @@ int main() {
     pthread_create(&id, NULL, ctrlCmech, &sockfd);
 
 
-    int code = init_server(&sockfd, &server_addr);
+    int code = init(&sockfd, &server_addr);
     if (code != 0) return code;
 
     
@@ -245,9 +249,6 @@ void* accept_clients(void* args) {
         // }
         // (, ...), ___, ___,
 
-
-        players[free_idx].id = player_id;
-        players[free_idx].is_ready = false;
         
         printf("Got A Conncection! (fd: %d)\n",client_fd);
 
@@ -263,20 +264,9 @@ void* accept_clients(void* args) {
         client_args->ptrThisPlayer = &players[free_idx];
         
         (*ptrPlayer_count)++;
-        // printf("Creating handle client thread: \nplayer_count: %d\n fd:%d\n", *ptrPlayer_count, client_args->ptrThisClient->fd);
-        buf[0] = TYPE_RESP_UPDATE_ARRAY;
-        *(uint32_t*) (buf + 1) = SIZE_RESP_UPDATE_ARRAY;
-        send(client_fd, buf, sizeof(buf), 0);
-        send(client_fd, (void*)players, MAX_PLAYER_COUNT * sizeof(player_t), 0);
-    
-        buf[0] = TYPE_RESP_JOIN;
-        *(uint32_t*) (buf + 1) = SIZE_RESP_JOIN;
-        int n = send(client_fd, buf, sizeof(buf), 0);
-        printf("n=%d\n",n);
-        n = send(client_fd, (void*)&players[free_idx].id, sizeof(size_t), 0);
-        printf("n=%d\n",n);
         pthread_mutex_unlock(&lock_players);
-        
+        // printf("Creating handle client thread: \nplayer_count: %d\n fd:%d\n", *ptrPlayer_count, client_args->ptrThisClient->fd);
+
         //TODO: finish arrray sync and test that if finish 
         pthread_create(&id, NULL, handle_client, (void*)client_args);
 
@@ -294,10 +284,12 @@ void* handle_client(void* args) {
     size_t* ptrPlayer_count = t_args->ptrPlayer_count;
     pthread_mutex_unlock(&lock_players);
 
-    char data[SIZE_HEADER + MAX_DATA_LENGTH];
-    packet_type type = 0;
-    uint32_t size;
-    long n;
+    packet_fields fields;
+    packet_type type;
+    
+    
+
+
     // TODO: staging and validating.
 
 
@@ -309,88 +301,17 @@ void* handle_client(void* args) {
             time_sync(ptrThisPlayer);
         }
         
-                // receive the packet, according to protocol
-        if (recv(ptrThisPlayer->client.fd, (void*) &type, 1, 0) <= 0) goto leave;
+        type = recv_packet(ptrThisPlayer->client.fd, &fields);
+        printf("%d\n", type);
+        fflush(stdout);
+
+        pthread_mutex_lock(&lock_players);
+        handle_packet(ptrThisPlayer->client.fd, type, &fields, ptrPlayers);
+        pthread_mutex_unlock(&lock_players);
+
+        if(type == TYPE_REQ_LEAVE) return NULL;
         
-        // if (n < 0) {
-        //     perror("recv: ");
-        // } 
 
-        if (recv(ptrThisPlayer->client.fd, (void*) &size, 4, 0) <= 0) goto leave;
-        if (size > MAX_DATA_LENGTH) {
-            printf("packet too large! discarding...\n");
-            // clear recv buffer.
-            clear_socket_buffer(ptrThisPlayer->client.fd);
-            
-            continue;
-        }
-        if (size > 0) 
-            if (recv(ptrThisPlayer->client.fd, (void*) data, size, 0) <= 0) goto leave;
-
-        switch (type) {
-
-            case TYPE_REQ_PING:
-                printf("type req ping sent by %d\n", ptrThisPlayer->client.fd);
-                data[0] = TYPE_RESP_PING;
-                *(uint32_t*)&data[1] = SIZE_RESP_PING;
-
-                if (send(ptrThisPlayer->client.fd, data, SIZE_HEADER + SIZE_RESP_PING, 0) <= 0) goto leave;
-                break;
-
-            case TYPE_REQ_READY:
-                printf("type req ready sent by %d\n", ptrThisPlayer->client.fd);
-                if(data[0] != READY && data[0] != UNREADY) {
-                    printf("Unexpected Parsing Error..\n");
-                    continue;
-                }
-
-                ptrThisPlayer->is_ready = data[0] == READY ? true : false;
-
-                pthread_mutex_lock(&lock_players);
-                // TODO: buffer, size constants
-                
-                // Send Broadcast Ready
-                data[0] = TYPE_BROADCAST_READY;
-                *(uint32_t*)&data[1] = SIZE_BROADCAST_READY;
-                data[5] = ptrThisPlayer->is_ready ? READY: UNREADY;
-                *(uint32_t*)&data[6] = ptrThisPlayer->id;
-
-                for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-                    if (!ptrPlayers[i].client.is_active || &ptrPlayers[i] == ptrThisPlayer) continue;
-                    send(ptrPlayers[i].client.fd, data, SIZE_HEADER + SIZE_BROADCAST_READY, 0);
-                }
-                pthread_mutex_unlock(&lock_players);
-
-                break; 
-            
-            case TYPE_REQ_LEAVE:
-                printf("type req leave sent by %d\n", ptrThisPlayer->client.fd);
-                leave:
-                    // printf("fd: %d\n",ptrThisClient->fd);
-                    close(ptrThisPlayer->client.fd);
-                    pthread_mutex_lock(&lock_players);
-                    (*ptrPlayer_count)--;
-                    pthread_mutex_unlock(&lock_players);
-                    ptrThisPlayer->client.is_active = false;
-                    running = 0;
-                    // notify all other players of leave
-                    data[0] = TYPE_BROADCAST_LEAVE;
-
-                    break;
-
-            case TYPE_REQ_JOIN:
-                printf("type req join sent by %d\n", ptrThisPlayer->client.fd);
-                pthread_mutex_lock(&lock_players);
-                int empty_idx = -1;
-                // TODO
-                pthread_mutex_unlock(&lock_players);
-                break;
-            
-
-            default:
-                printf("Not Yet Handled.\n");
-                break;
-        }
     } 
    return NULL; 
 

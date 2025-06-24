@@ -2,12 +2,16 @@
 #include <stdint.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <arpa/inet.h> // for sockaddr_in, inet_pton()
 
-#include "game.h"
-#include "network.h"
-#include "net_const.h"
+#include "common/game.h"
+#include "networking/network.h"
+#include "networking/net_const.h"
 
-#include "net.h"
+#include "networking/net.h"
 
 packet_type recv_packet(int fd, packet_fields* fields) {
     if (fd <= 0) {
@@ -16,33 +20,33 @@ packet_type recv_packet(int fd, packet_fields* fields) {
     }
 
     packet_type type = 0;
-    recv(fd, type, 1, 0);
+    recv(fd, &type, 1, 0);
 
 
     switch (type) {
         case TYPE_BROADCAST_LEAVE:
-            recv(fd, *fields->id, sizeof(*fields->id), 0);
+            recv(fd, &(fields->id), sizeof(fields->id), 0);
             break;
         case TYPE_REQ_PING:
             // no data
             break;
         case TYPE_RESP_JOIN:
-            recv(fd, *fields->id, sizeof(*fields->id), 0);
+            recv(fd, &(fields->id), sizeof(fields->id), 0);
             break;
         case TYPE_BROADCAST_JOIN:
-            recv(fd, *fields->id, sizeof(*fields->id), 0);
+            recv(fd, &(fields->id), sizeof(fields->id), 0);
             break;
         case TYPE_BROADCAST_READY:
-            recv(fd, *fields->is_ready, sizeof(*fields->is_ready), 0);
-            recv(fd, *fields->id, sizeof(*fields->id), 0);
+            recv(fd, &(fields->is_ready), sizeof(fields->is_ready), 0);
+            recv(fd, &(fields->id), sizeof(fields->id), 0);
             break;
         case TYPE_REQ_TIMESTAMP:
-            recv(fd, *fields->timestamp, sizeof(*fields->timestamp), 0);
+            recv(fd, &(fields->timestamp), sizeof(fields->timestamp), 0);
             break;
         case TYPE_BROADCAST_START_GAME: // TODO
             break;
         case TYPE_BROADCAST_UPDATE_STATE: 
-            recv(fd, fields->players_array, sizeof(fields->players_array), 0);
+            recv(fd, fields->players_array, SIZE_BROADCAST_UPDATE_STATE, 0);
             break;
         default: 
             printf("recv: not implemented\n");
@@ -62,18 +66,19 @@ int send_packet(int fd, packet_type type, packet_fields* fields){
     char msg_buffer[MAX_DATA_LENGTH];
 
     *msg_buffer = type;
-
+    
     switch (type) {
+        case TYPE_REQ_LEAVE:
+            break;
+        case TYPE_REQ_JOIN:
+            break;
         case TYPE_RESP_PING:
             break;
-        case TYPE_RESP_JOIN:
-            *(uint32_t*) (msg_buffer + SIZE_HEADER) = *(fields->id);
-            break;
         case TYPE_REQ_READY:
-            *(msg_buffer + SIZE_HEADER) = *(fields->is_ready);
+            *(msg_buffer + SIZE_HEADER) = fields->is_ready;
             break;
         case TYPE_RESP_TIMESTAMP:
-            *(uint64_t*) (msg_buffer + SIZE_HEADER) = *(fields->timestamp);
+            *(uint64_t*) (msg_buffer + SIZE_HEADER) = fields->timestamp;
             break;
         case TYPE_REQ_UPDATE_STATE: // TODO
             break;
@@ -88,3 +93,54 @@ int send_packet(int fd, packet_type type, packet_fields* fields){
     send(fd, msg_buffer, SIZE_HEADER + get_packet_size(type), 0);
     return 0;
 } 
+
+
+int init(int* sockfd, struct sockaddr_in* server_addr) {
+
+    // Create socket
+    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (*sockfd < 0) {
+        perror("Socket creation failed");
+        return 1;
+    }
+
+    // Set server address
+    memset(server_addr, 0, sizeof(*server_addr)); // Clear memory
+    server_addr->sin_family = AF_INET;              // IPv4
+    server_addr->sin_port = htons(SERVER_PORT);     // Server port to big endian 
+    if (inet_pton(AF_INET, SERVER_IP, &server_addr->sin_addr) <= 0) {
+        perror("Invalid address / Address not supported");
+        close(*sockfd);
+        return 1;
+    }
+
+    // Connect to the server
+    if (connect(*sockfd, (struct sockaddr *)server_addr, sizeof(*server_addr)) < 0) {
+        perror("Connection failed");
+        close(*sockfd);
+        return 1;
+    }
+    // int n;
+    // char buf[SIZE_HEADER];
+    // usleep(250 * 1000); // qureter of a sec
+    // n = recv(*sockfd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
+    // if (n == 0) return 1; // connection closed (refused.)
+
+    // recv clients array
+
+    
+    // if(buf[0] != TYPE_RESP_UPDATE_ARRAY) return -1;
+    // n = recv(*sockfd, (void*)players_arr, *(uint32_t*) &buf[1], 0);
+
+    // for (int i = 0; i < n; i++) {
+    //     printf("%02X ", (unsigned char)buf[i]);  // Print as hex
+    // }
+    // printf("\n");
+
+    // // recv my id
+    // recv(*sockfd, buf, sizeof(buf), 0);
+
+    // recv(*sockfd, id, *(uint32_t*) &buf[1], 0);
+
+    return 0;
+}

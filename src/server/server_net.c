@@ -1,13 +1,15 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <sys/socket.h>
+#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h> // for sockaddr_in, inet_pton()
 
-#include "game.h"
-#include "network.h"
-#include "net_const.h"
-
-#include "net.h"
+#include "common/game.h"
+#include "networking/network.h"
+#include "networking/net_const.h"
+#include "networking/net.h"
 
 int send_packet(int fd, packet_type type, packet_fields* fields) {
     if (fd <= 0) {
@@ -21,26 +23,28 @@ int send_packet(int fd, packet_type type, packet_fields* fields) {
     // *(uint32_t*) (msg_buffer + 1) = size;
 
     *msg_buffer = type;
-
+    // 1. transform project to use select
+    // 2. implement ping in server: (in handle client recv packet as usual and add a case for ping in the switch statment)
+    // 
     switch (type) {
         case TYPE_BROADCAST_LEAVE:
-            *(uint32_t*) (msg_buffer + SIZE_HEADER) = *(fields->id);
+            *(uint32_t*) (msg_buffer + SIZE_HEADER) = fields->id;
             break;
-        case TYPE_REQ_PING:
+        case TYPE_RESP_PING:
             // no data.
             break;
         case TYPE_RESP_JOIN:
-            *(uint32_t*) (msg_buffer + SIZE_HEADER) = *(fields->id);
+            *(uint32_t*) (msg_buffer + SIZE_HEADER) = fields->id;
             break;
         case TYPE_BROADCAST_JOIN:
-            *(uint32_t*) (msg_buffer + SIZE_HEADER) = *(fields->id);
+            *(uint32_t*) (msg_buffer + SIZE_HEADER) = fields->id;
             break;
         case TYPE_BROADCAST_READY:
-            *(msg_buffer + SIZE_HEADER) = *(fields->is_ready);
-            *(uint32_t*) (msg_buffer + SIZE_HEADER + 1) = *(fields->id);
+            *(msg_buffer + SIZE_HEADER) = fields->is_ready;
+            *(uint32_t*) (msg_buffer + SIZE_HEADER + 1) = fields->id;
             break;
         case TYPE_REQ_TIMESTAMP:
-            *(uint64_t*) (msg_buffer + SIZE_HEADER) = *(fields->timestamp);
+            *(uint64_t*) (msg_buffer + SIZE_HEADER) = fields->timestamp;
             break;
         case TYPE_BROADCAST_START_GAME: // TODO
             break;
@@ -67,30 +71,117 @@ packet_type recv_packet(int fd, packet_fields* fields){
         perror("Invalid file desc.");
         return TYPE_INVALID;
     }
-    packet_type type = 0;
+    packet_type type = TYPE_REQ_LEAVE;
+    
 
     char msg_buffer[MAX_DATA_LENGTH];
-    recv(fd, type, 1, 0);
+    recv(fd, &type, 1, 0);
 
     switch (type) {
-        case TYPE_RESP_PING:
+        case TYPE_REQ_LEAVE:
+            return TYPE_REQ_LEAVE;
+        case TYPE_REQ_PING:
             // no data.
             break;
         case TYPE_REQ_JOIN:
-            recv(fd, *fields->id, sizeof(*fields->id), 0);
+            recv(fd, &(fields->id), sizeof(fields->id), 0);
             break;
         case TYPE_REQ_READY:
-            recv(fd, *fields->is_ready, sizeof(*fields->is_ready), 0);
+            recv(fd, &(fields->is_ready), sizeof(fields->is_ready), 0);
             break;
         case TYPE_RESP_TIMESTAMP:
-            recv(fd, *(fields->timestamp), sizeof(*(fields->timestamp)), 0);
+            recv(fd, &(fields->timestamp), sizeof(fields->timestamp), 0);
             break;
         case TYPE_REQ_UPDATE_STATE:
             // no data?
             break;
         default: 
             printf("recv: not implemented\n");
-            break;
+            return TYPE_INVALID;
     }
     return type;
 } 
+
+int handle_packet(int fd, packet_type type, packet_fields* fields, player_t* players_arr) {
+    // not thread safe
+    // destroys fields.
+    switch (type) {
+        case TYPE_REQ_PING:
+            
+            break;
+        case TYPE_REQ_LEAVE:
+            for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+                if (!players_arr[i].client.is_active) continue;
+                if (players_arr[i].client.fd == fd) {
+                    players_arr[i].client.is_active = false;
+                    close(fd);
+                    break;
+                }
+            }
+            break;
+        case TYPE_REQ_JOIN:
+            player_t* player;
+            for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+                if (!players_arr[i].client.is_active) continue;
+                if (players_arr[i].client.fd == fd) {
+                    player = (players_arr + i);
+                    break;
+                }
+            }
+            player->id = fd;
+            player->is_ready = false;
+            player->is_alive = true;
+
+                    
+            for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+                if (!players_arr[i].client.is_active ||
+                     (players_arr + i) == player) continue;
+                fields->id = player->id;
+                send_packet(player->client.fd, TYPE_BROADCAST_JOIN, fields);
+            }
+
+            break;
+        case TYPE_REQ_READY:
+            break;
+        case TYPE_RESP_TIMESTAMP:
+            break;
+        case TYPE_REQ_UPDATE_STATE:
+            break;
+        default: 
+            printf("recv: not implemented\n");
+            break;
+    }
+    return 0; 
+} 
+
+
+
+int init(int* sockfd, struct sockaddr_in* server_addr) {
+    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (*sockfd == -1) {
+        perror("Error creating a socket.");
+        return 1;
+    }
+        /* nice to have, dont care if this fails.*/
+    int enabled = 1;
+    (void)setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
+  // delete in production.
+    
+    memset(server_addr, 0, sizeof(*server_addr));
+    server_addr->sin_family = AF_INET; 
+    server_addr->sin_addr.s_addr = INADDR_ANY;
+    server_addr->sin_port = htons(TCP_PORT); 
+    
+    if(bind(*sockfd, (struct sockaddr *)server_addr, sizeof(*server_addr))==-1){
+        perror ("Error binding address.");
+        close(*sockfd);
+        return 1;
+    }
+    // listen for new connections
+    if(listen(*sockfd, MAX_PLAYER_COUNT)==-1){
+        perror ("Error Listening to socket.");
+        close(*sockfd);
+        return 1;
+    }
+    return 0;
+}

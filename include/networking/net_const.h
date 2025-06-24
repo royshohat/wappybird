@@ -1,3 +1,5 @@
+#pragma once
+
 #define MAX_DATA_LENGTH 1024
 #define TCP_PORT 8080
 #define UDP_PORT 9000
@@ -37,9 +39,8 @@
 #define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
 
 // Update Array
-#define SIZE_RESP_UPDATE_ARRAY (MAX_PLAYER_COUNT * sizeof(player_t))
+#define SIZE_BROADCAST_UPDATE_STATE (MAX_PLAYER_COUNT * sizeof(player_t))
 
 // Update
 #define SIZE_BROADCAST_START_GAME 0 // TODO
 #define SIZE_REQ_UPDATE_STATE 0 // TODO
-#define SIZE_BROADCAST_UPDATE_STATE 0 // TODO

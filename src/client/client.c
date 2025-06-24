@@ -8,7 +8,9 @@
 
 #include "utils/util.h"
 #include "networking/network.h"
+#include "networking/net_const.h"
 #include "common/game.h"
+#include "networking/net.h"
 
 
 pthread_mutex_t lock_players; 
@@ -36,7 +38,7 @@ int main() {
     }
 
     
-    if(init_client(&sockfd, &server_addr, &id, players)!=0) {
+    if(init(&sockfd, &server_addr)!=0) {
         return 1;
     }
 
@@ -52,30 +54,40 @@ int main() {
     pthread_create(&t_id, NULL, listen_to_server, NULL);
     char input[101];
     char resp[MAX_DATA_LENGTH + SIZE_HEADER];
+    packet_fields fields;
+    packet_type type;
     
     while (!0) {
         scanf("%100s", input);
         
         int len = strlen(input);
-        if (memcmp(input, "REQ_JOIN", len) == 0) {
-            send_packet(3, sockfd, TYPE_REQ_JOIN);
+        // printf("%s", input);
+        if (strncmp(input, "REQ_JOIN", len) == 0) {
+            type = TYPE_REQ_JOIN;
         }
-        if (memcmp(input, "REQ_LEAVE", len) == 0) {
-            send_packet(3, sockfd, TYPE_REQ_LEAVE);
-            
+        if (strncmp(input, "REQ_LEAVE", len) == 0) {
+            type = TYPE_REQ_LEAVE;        
         }
-        if (memcmp(input, "REQ_PING", len) == 0) {
-            ping(sockfd);
-            // send_packet(3, sockfd, TYPE_REQ_PING);
+        if (strncmp(input, "REQ_PING", len) == 0) {
+            type = TYPE_REQ_PING;
         }
-        if (memcmp(input, "REQ_READY", len) == 0) {
-            send_packet(4, sockfd, TYPE_REQ_READY, READY);
+        if (strncmp(input, "REQ_READY", len) == 0) {
+            fields.is_ready = true;
+            type = TYPE_REQ_READY;
         }
-        if (memcmp(input, "REQ_TIMESTAMP", len) == 0) {
-            send_packet(3, sockfd, TYPE_REQ_TIMESTAMP, get_timestamp_ms());
-            
+        if (strncmp(input, "REQ_TIMESTAMP", len) == 0) {
+            fields.timestamp = get_timestamp_ms();
+            type = TYPE_REQ_TIMESTAMP;
         }
      
+        send_packet(sockfd, type, &fields);
+
+
+        //if (strncmp(input, "REQ_TIMESTAMP", len) == 0 ||
+            //strncmp(input, "REQ_PING", len) == 0) {
+            //recv_packet(sockfd, &fields);
+        //}
+
         sleep(1);
 
     }
@@ -83,6 +95,7 @@ int main() {
 }
 
 void* listen_to_server(void* args){
+    return NULL;
     listen_to_server_args* t_args = (listen_to_server_args*)args;
     player_t* players = t_args->players;
     int sockfd = t_args->sockfd;
@@ -93,7 +106,7 @@ void* listen_to_server(void* args){
     uint32_t size;
     
     char data[MAX_DATA_LENGTH];
-
+/*
     while (running) {
         pthread_mutex_lock(&lock_players);
         for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
@@ -103,7 +116,7 @@ void* listen_to_server(void* args){
         pthread_mutex_unlock(&lock_players);
 
         if (recv(sockfd, &type, SIZE_PACKET_TYPE, 0) <= 0) goto leave;
-        if (recv(sockfd, &size, SIZE_PACKET_LEN, 0) <= 0) goto leave;
+        // TODO: if (recv(sockfd, &size, SIZE_PACKET_LEN, 0) <= 0) goto leave;
         if (size > MAX_DATA_LENGTH) { // server shouldnt behave like that. 
             // just in case, we handle error so the client doesn't collapse. 
             printf("packet too large! discarding...\n"); 
@@ -153,5 +166,5 @@ void* listen_to_server(void* args){
         *(uint32_t*) &req[1] = SIZE_REQ_LEAVE;
         send(sockfd, req, sizeof(req), 0);
         close(sockfd);
-    return 0;
+*/
 } 

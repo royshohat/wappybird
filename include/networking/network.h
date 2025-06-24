@@ -1,6 +1,5 @@
-
-
-uint32_t get_packet_size(packet_type type); 
+#pragma once
+#include <stdint.h>
 
 typedef struct {
     // client_data
@@ -8,6 +7,25 @@ typedef struct {
     int offset_ms;
     bool is_active;
 } client_t; 
+
+typedef struct 
+{
+    client_t client;
+    // player_data
+    uint32_t id; 
+    bool is_ready;
+    bool is_alive;
+    // another thing yet to come like bird and such...
+} player_t;
+
+typedef struct {
+    // data
+    char is_ready;
+    int id;
+    uint64_t timestamp;
+    player_t* players_array;
+    player_t player;
+} packet_fields;
 
 // Game Packets
 typedef enum  {
@@ -40,16 +58,6 @@ typedef enum  {
     // POST GAME (?)
 } packet_type;
 
-typedef struct {
-    // data
-    char* is_ready;
-    int* id;
-    uint64_t* timestamp;
-    player_t* players_array;
-    player_t* player;
-} packet_fields;
-
-
 
 typedef enum {
     STAGE_WAIT_FOR_PLAYERS,
@@ -57,6 +65,9 @@ typedef enum {
     STAGE_START_GAME,
     STAGE_GAME, // in game
 } stage;
+
+uint32_t get_packet_size(packet_type type); 
+void print_packet(packet_type type, packet_fields* fields);
 
 // packet structure
 // -------------------------------------
