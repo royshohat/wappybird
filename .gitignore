@@ -1,4 +1,5 @@
 test
 test.c
+build/*/*.o
 .vscode/
 tmp/
