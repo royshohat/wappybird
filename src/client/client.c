@@ -87,8 +87,10 @@ int main() {
             //strncmp(input, "REQ_PING", len) == 0) {
             //recv_packet(sockfd, &fields);
         //}
-
+        
+        printf("Sleeping...\n");
         sleep(1);
+        printf("Ready!\n");
 
     }
     

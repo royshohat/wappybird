@@ -79,12 +79,12 @@ packet_type recv_packet(int fd, packet_fields* fields){
 
     switch (type) {
         case TYPE_REQ_LEAVE:
+            // if fd is closed
             return TYPE_REQ_LEAVE;
         case TYPE_REQ_PING:
             // no data.
             break;
         case TYPE_REQ_JOIN:
-            recv(fd, &(fields->id), sizeof(fields->id), 0);
             break;
         case TYPE_REQ_READY:
             recv(fd, &(fields->is_ready), sizeof(fields->is_ready), 0);
@@ -102,7 +102,7 @@ packet_type recv_packet(int fd, packet_fields* fields){
     return type;
 } 
 
-int handle_packet(int fd, packet_type type, packet_fields* fields, player_t* players_arr) {
+int handle_packet(int fd, packet_type type, packet_fields* fields, player_t* players_arr, size_t* player_count) {
     // not thread safe
     // destroys fields.
     switch (type) {
@@ -111,6 +111,7 @@ int handle_packet(int fd, packet_type type, packet_fields* fields, player_t* pla
             break;
         case TYPE_REQ_LEAVE:
             for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+                // set the player with the current fd to is_active = false.
                 if (!players_arr[i].client.is_active) continue;
                 if (players_arr[i].client.fd == fd) {
                     players_arr[i].client.is_active = false;
@@ -118,12 +119,17 @@ int handle_packet(int fd, packet_type type, packet_fields* fields, player_t* pla
                     break;
                 }
             }
+            // decrement player count
+            (*player_count)--;
+            
             break;
         case TYPE_REQ_JOIN:
+            // find the current player object (stored in player struct)
             player_t* player;
             for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
                 if (!players_arr[i].client.is_active) continue;
                 if (players_arr[i].client.fd == fd) {
+                    if (players_arr[i].is_alive) return 1; // already joined
                     player = (players_arr + i);
                     break;
                 }

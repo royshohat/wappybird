@@ -42,8 +42,8 @@ CLIENT_OBJS = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(CLIENT_SRCS))
 
 # We need SDL3 for the client. This uses the `sdl3-config` tool to get
 # the correct compiler and linker flags.
-SDL_CFLAGS = $(shell sdl3-config --cflags)
-SDL_LIBS = $(shell sdl3-config --libs)
+SDL_CFLAGS = $(shell pkg-config --cflags sdl3)
+SDL_LIBS = $(shell pkg-config --libs sdl3)
 
 # 4. Targets (The Recipes)
 # ------------------------
@@ -65,7 +65,7 @@ server: $(SERVER_OBJS) $(COMMON_OBJS) $(NET_OBJS) $(UTILS_OBJS)
 client: $(CLIENT_OBJS) $(COMMON_OBJS) $(NET_OBJS) $(GRAPHICS_OBJS) $(UTILS_OBJS)
 	@echo "Linking client..."
 	@mkdir -p $(BINDIR) # Ensure the bin directory exists
-	$(CC) $(LDFLAGS) $^ -o $(BINDIR)/client $(SDL_LIBS)
+	$(CC) $(LDFLAGS) $^ -o $(BINDIR)/client $(SDL_LIBS) $(CFLAGS)
 
 # This is a generic "pattern rule". It's the most important part.
 # It tells make how to create ANY .o file in the BUILDDIR from a .c file

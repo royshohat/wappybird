@@ -23,10 +23,6 @@
 #include "networking/net_const.h"
 
 
-volatile sig_atomic_t flag = 0;
-
-pthread_mutex_t lock_players; 
-pthread_mutex_t lock_stage;
 stage game_stage = STAGE_WAIT_FOR_PLAYERS;
 
 // int* ptr
@@ -52,23 +48,20 @@ typedef struct {
 bool is_game_stage_equal(stage gs);
 void wait_ready(player_t* players, size_t* player_count);
 void time_sync(player_t* ptrPlayer);
+void main_loop();
 void* handle_client(void* args);
 void handler(int sigint);
 void* ctrlCmech(void* socket_fd);
-void* accept_clients(void* args);
-
+int accept_clients(int sockfd, struct sockaddr_in* server_addr, client_t* clients, size_t* ptrClient_count); 
 
 int main() {
     int sockfd;
     struct sockaddr_in server_addr;
     pthread_t id;
-
     
-    if (pthread_mutex_init(&lock_players, NULL) != 0 || 
-        pthread_mutex_init(&lock_stage, NULL) != 0) {
-        printf("Error initializing mutex..\n");
-        return 1;
-    }
+
+    // 1. can you change the array given to select in the middle of execution?
+    // 2. can accpet be used in select along side other file descriptors.
 
     // delete in production
     // terminate the server
@@ -80,22 +73,20 @@ int main() {
     int code = init(&sockfd, &server_addr);
     if (code != 0) return code;
 
-    
-    player_t players[MAX_PLAYER_COUNT] = {0}; // every read or write must use mutex
-    // memset(players, 0, MAX_PLAYER_COUNT * sizeof(*players));
-    size_t player_count = 0;            // every read or write must use mutex
+    // ****************************TODO**************************************
+    //      write main loop with select 
+    //      fix accept client
+    //      remember to move part of the code from handle client to the main loop when creating it
+    //      handle closed sockets in select 
+        
+        
+              
 
-    handle_client_args client_args;
-    
-    accept_client_args args = {
-         .sockfd = sockfd,
-         .server_addr = &server_addr,
-         .ptrPlayers = players,
-         .ptrPlayer_count = &player_count,
-         .ptrHandle_args = &client_args
-    };
-    
-    
+    player_t players[MAX_PLAYER_COUNT] = {0}; 
+    // same as memset(players, 0, MAX_PLAYER_COUNT * sizeof(*players));
+
+    size_t client_count = 0;
+      
     pthread_create(&id, NULL, accept_clients, (void*)&args);
 
     // wait for all players to get ready.
@@ -112,7 +103,7 @@ int main() {
     // }
     
     printf("End.\n");
-    return 0;
+    return;
 }
 
 void time_sync(player_t* ptrPlayer) {
@@ -138,7 +129,6 @@ void time_sync(player_t* ptrPlayer) {
     }
     int latency = ms_sum / COUNT;
     ptrPlayer->client.offset_ms = latency + recv_client_timestamp - recv_server_timestamp;
-
     return;
 }
 
@@ -154,7 +144,7 @@ void wait_ready(player_t* players, size_t* player_count) {
             }
         }
         if (start && !(*player_count < 2)) {
-            pthread_mutex_unlock(&lock_players);
+            pthread_mutex_unlock(&lock_players); 
             break;
         } else {
             pthread_mutex_unlock(&lock_players);
@@ -167,112 +157,62 @@ void wait_ready(player_t* players, size_t* player_count) {
 }
 
 
-void* accept_clients(void* args) {
-    
-    accept_client_args* t_args = (accept_client_args*) args;
-    char buf[SIZE_HEADER];
-    int sockfd = t_args->sockfd;
-    struct sockaddr_in* server_addr = t_args->server_addr;
-    player_t* players = t_args->ptrPlayers; // assume size of the array is MAX_PLAYER_COUNT
-    size_t* ptrPlayer_count = t_args->ptrPlayer_count;
-    handle_client_args* client_args = t_args->ptrHandle_args;
-
-    pthread_t id;
-    unsigned int player_id = 1;
+int accept_clients(int sockfd, struct sockaddr_in* server_addr, client_t* clients, size_t* ptrClient_count) {
     int client_fd;
 
-    struct sockaddr_in client_addr;
+    // test for max client count..
+    if (*ptrClient_count == MAX_CLIENT_COUNT || game_stage != STAGE_GAME) 
+        printf("MAX_CLIENT_COUNT=%d REACHED.\n", MAX_CLIENT_COUNT);
+        return NULL; // close the connection in the face if lobby is full
     
-    int msg_once;
+    // non-blocking accept in case where some client tries to connect but there is no room
+    // int flags = fcntl(sockfd, F_GETFL, 0);
+    // fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+    // int fd = accept(sockfd, NULL, NULL);
+    // if (fd != -1) close(fd);
+    // restore socket flags to blocking again
+    // fcntl(sockfd, F_SETFL, flags); 
     
-
-
-    printf("Accepting players...\n");
-    while(!0){
-        // test for max players..
-        msg_once = 0;
-        while (!0) {
-            pthread_mutex_lock(&lock_players);
-            if (*ptrPlayer_count == MAX_PLAYER_COUNT && game_stage!=STAGE_GAME) {
-                pthread_mutex_unlock(&lock_players);
-                usleep(2000); // sleep for 2 ms.
-            } else {
-                pthread_mutex_unlock(&lock_players);
-                break;
-            }
-            // non-blocking accept in case where some client tries to connect but there is no room
-            int flags = fcntl(sockfd, F_GETFL, 0);
-            fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-            int fd = accept(sockfd, NULL, NULL);
-            if (fd != -1) close(fd);
-            // restore socket flags to blocking again
-            fcntl(sockfd, F_SETFL, flags); 
-            if (!msg_once) {
-                printf("MAX PLAYER REACHED.\n");
-                msg_once = 1;
-            }
-        }
-        
-        
-        if(((client_fd = accept(sockfd, NULL, NULL)) < 0)){
-            printf("client_fd: %d\n", client_fd);
-            if (errno == EBADF) {
-                // server shutdown via Ctrl - c.
-                printf("Everyone is ready!! \nListening socket closed, shutting down accept loop.\n");
-            } else {
-                // some kind of other error with accept.
-                close(sockfd);
-                perror("accept failed");
-            }
-            return NULL; 
-        }
+    
+    if(((client_fd = accept(sockfd, NULL, NULL)) < 0)){
         printf("client_fd: %d\n", client_fd);
-
-        pthread_mutex_lock(&lock_players);
-        //construction
-        int free_idx = -1;
-        for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-            if (!players[i].client.is_active) {
-                free_idx = i;
-                break;
-            }
+        if (errno == EBADF) {
+            // server shutdown via Ctrl - c.
+            printf("Everyone is ready!! \nListening socket closed, shutting down accept loop.\n");
+        } else {
+            // some kind of other error with accept.
+            close(sockfd);
+            perror("accept failed");
         }
-        if (free_idx == -1) {
-            printf("something bad happend\n");
-            return NULL;
-        }
-        players[free_idx].client.fd = client_fd;
-        players[free_idx].client.offset_ms = sync_timestamp(client_fd);
-        players[free_idx].client.is_active = true;
-        // for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-        //     players[i].client.is_active = false;
-        // }
-        // (, ...), ___, ___,
-
-        
-        printf("Got A Conncection! (fd: %d)\n",client_fd);
-
-        for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-            if (!players[i].client.is_active) break;
-            // print_player(players[i]);
-        }
-
-
-        memset(client_args, 0, sizeof(*client_args)); // just in case.
-        client_args->ptrPlayers = players;
-        client_args->ptrPlayer_count = ptrPlayer_count;
-        client_args->ptrThisPlayer = &players[free_idx];
-        
-        (*ptrPlayer_count)++;
-        pthread_mutex_unlock(&lock_players);
-        // printf("Creating handle client thread: \nplayer_count: %d\n fd:%d\n", *ptrPlayer_count, client_args->ptrThisClient->fd);
-
-        //TODO: finish arrray sync and test that if finish 
-        pthread_create(&id, NULL, handle_client, (void*)client_args);
-
-        player_id++;
+        return NULL; 
     }
-    return NULL;
+    printf("Got A Conncection! (fd: %d)\n",client_fd);
+    // printf("accepted client with fd: %d\n", client_fd);
+
+    //construction
+    int free_idx = -1;
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+        if (!clients[i].is_active) {
+            free_idx = i;
+            break;
+        }
+    }
+    // assert
+    if (free_idx == -1) {
+        printf("something bad happend\n");
+        return NULL;
+    }
+    clients[free_idx].fd = client_fd;
+    clients[free_idx].offset_ms = 0; // change me
+    clients[free_idx].is_active = true;
+
+    
+    (*ptrClient_count)++;
+    // printf("Creating handle client thread: \nplayer_count: %d\n fd:%d\n", *ptrPlayer_count, client_args->ptrThisClient->fd);
+
+    // TODO: finish arrray sync and test that if finish 
+    
+    return 0;
 }
 
 
@@ -286,9 +226,6 @@ void* handle_client(void* args) {
 
     packet_fields fields;
     packet_type type;
-    
-    
-
 
     // TODO: staging and validating.
 
@@ -300,17 +237,20 @@ void* handle_client(void* args) {
         if (is_game_stage_equal(STAGE_SYNC_TIME) && ptrThisPlayer->client.offset_ms == INT_MAX) {
             time_sync(ptrThisPlayer);
         }
-        
+        printf("Receiving a packet\n");
         type = recv_packet(ptrThisPlayer->client.fd, &fields);
-        printf("%d\n", type);
+        printf("packet type: %d\n", type);
         fflush(stdout);
 
         pthread_mutex_lock(&lock_players);
-        handle_packet(ptrThisPlayer->client.fd, type, &fields, ptrPlayers);
+        int res = handle_packet(ptrThisPlayer->client.fd, type, &fields, ptrPlayers, ptrPlayer_count);
+        printf("handle result: %d\n", res);
         pthread_mutex_unlock(&lock_players);
 
-        if(type == TYPE_REQ_LEAVE) return NULL;
-        
+        if(type == TYPE_REQ_LEAVE){
+            printf("closing file des : %d\n", ptrThisPlayer->client.fd);
+            return NULL;
+        }
 
     } 
    return NULL; 

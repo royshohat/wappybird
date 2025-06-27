@@ -1,6 +1,7 @@
 #pragma once
 
 #define MAX_DATA_LENGTH 1024
+#define MAX_CLIENT_COUNT 5
 #define TCP_PORT 8080
 #define UDP_PORT 9000
 #define READY 1
