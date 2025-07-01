@@ -1,5 +1,54 @@
 #pragma once
-#include <stdint.h>
+
+#define MAX_DATA_LENGTH 1024
+#define MAX_CLIENT_COUNT 5
+#define TCP_PORT 8080
+#define UDP_PORT 9000
+#define READY 1
+#define UNREADY 2
+
+#define SERVER_IP "127.0.0.1" // Change this to the server's IP address
+#define SERVER_PORT 8080      // Change this to the server's port
+
+// **HEADER**
+// header fields
+#define SIZE_PACKET_TYPE 1
+// header size
+#define SIZE_HEADER SIZE_PACKET_TYPE
+
+// **DATA**
+// Ready Packets
+#define SIZE_IS_READY 1
+#define SIZE_ID 4
+
+// Ping
+#define SIZE_REQ_PING 0
+#define SIZE_RESP_PING 0
+
+// Leave
+#define SIZE_REQ_LEAVE 0
+#define SIZE_BROADCAST_LEAVE 4
+
+// Join
+#define SIZE_REQ_JOIN 0
+#define SIZE_RESP_JOIN 4
+#define SIZE_BROADCAST_JOIN 4
+
+// Timestamp
+#define SIZE_REQ_TIMESTAMP 8
+#define SIZE_RESP_TIMESTAMP 8
+
+// Ready
+#define SIZE_REQ_READY (SIZE_IS_READY)
+#define SIZE_BROADCAST_READY (SIZE_IS_READY + SIZE_ID)
+
+// Update Array
+#define SIZE_BROADCAST_UPDATE_STATE (MAX_PLAYER_COUNT * sizeof(player_t))
+
+// Update
+#define SIZE_BROADCAST_START_GAME 0 // TODO
+#define SIZE_REQ_UPDATE_STATE 0 // TODO
+
 
 typedef struct {
     // client_data
@@ -16,7 +65,8 @@ typedef struct
     bool is_ready;
     bool is_alive;
     // another thing yet to come like bird and such...
-} player_t;
+} player_t; 
+// move to game.h?
 
 typedef struct {
     // data
@@ -65,53 +115,3 @@ typedef enum {
     STAGE_START_GAME,
     STAGE_GAME, // in game
 } stage;
-
-uint32_t get_packet_size(packet_type type); 
-void print_packet(packet_type type, packet_fields* fields);
-
-// packet structure
-// -------------------------------------
-// header:
-// 1 byte                         | packet_type
-// data
-// packet_length bytes <= 1024    | data
-
-
-
-// PACKET DATA STRUCTE
-
-// *TYPE_REQ_READY* 
-// total size = 1 byte
-// READY or UNREADY (1 byte)
-
-// *TYPE_BROADCAST_READY*
-// total_size = 5 bytes
-// READY or UNREADY (1 byte) 
-// client_id (4 byte) 
-
-
-// TYPE_REQ_TIMESTAMP, 
-// total size = 8 bytes
-// the server timestamp
-
-// TYPE_RESP_TIMESTAMP,
-// total size = 8 bytes
-// the client timestamp
-
-
-// TYPE_RESP_ID
-// total size = 4
-// size_t id
-
-// TYPE_RESP_UPDATE_ARRAY
-// total size = MAX_PLAYER_COUNT * sizeof (client_t)
-// client_t* clients_array
-
-
-// TYPE_BROADCAST_JOIN
-// total size = sizeof player_t
-// player_t player
-
-
-//TYPE_BROADCAST_LEAVE
-// total size = 4
