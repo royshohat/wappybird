@@ -162,32 +162,37 @@ int handle_packet(int fd, packet_type type, packet_fields* fields, player_t* pla
 
 
 
-int init(int* sockfd, struct sockaddr_in* server_addr) {
-    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (*sockfd == -1) {
+int init(vars_t* vars) {
+    vars->server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (vars->server_fd == -1) {
         perror("Error creating a socket.");
         return 1;
     }
-        /* nice to have, dont care if this fails.*/
+
     int enabled = 1;
-    (void)setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
-  // delete in production.
+    (void)setsockopt(vars->server_fd, SOL_SOCKET, SO_REUSEADDR, &enabled, sizeof(enabled)); 
+    // nice to have, lets run bin files in a row 
+    // delete in production.
     
-    memset(server_addr, 0, sizeof(*server_addr));
-    server_addr->sin_family = AF_INET; 
-    server_addr->sin_addr.s_addr = INADDR_ANY;
-    server_addr->sin_port = htons(TCP_PORT); 
+    memset(&vars->server_addr, 0, sizeof(vars->server_addr));
+    vars->server_addr.sin_family = AF_INET; 
+    vars->server_addr.sin_addr.s_addr = INADDR_ANY;
+    vars->server_addr.sin_port = htons(TCP_PORT); 
     
-    if(bind(*sockfd, (struct sockaddr *)server_addr, sizeof(*server_addr))==-1){
+    if(bind(vars->server_fd, (struct sockaddr *)&vars->server_addr, sizeof(vars->server_addr))==-1){
         perror ("Error binding address.");
-        close(*sockfd);
+        close(vars->server_fd);
         return 1;
     }
     // listen for new connections
-    if(listen(*sockfd, MAX_PLAYER_COUNT)==-1){
+    if(listen(vars->server_fd, MAX_PLAYER_COUNT)==-1){
         perror ("Error Listening to socket.");
-        close(*sockfd);
+        close(vars->server_fd);
         return 1;
     }
+
+    // clients array init
+    memset(vars->clients, 0, MAX_CLIENT_COUNT * sizeof(client_t));
+
     return 0;
 }
