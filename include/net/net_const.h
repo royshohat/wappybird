@@ -1,5 +1,9 @@
 #pragma once
 
+#include "common/game_const.h"
+#include <stdbool.h>
+#include <stdint.h>
+
 #define MAX_DATA_LENGTH 1024
 #define MAX_CLIENT_COUNT 5
 #define TCP_PORT 8080
@@ -47,71 +51,68 @@
 
 // Update
 #define SIZE_BROADCAST_START_GAME 0 // TODO
-#define SIZE_REQ_UPDATE_STATE 0 // TODO
-
+#define SIZE_REQ_UPDATE_STATE 0     // TODO
 
 typedef struct {
-    // client_data
-    int fd;
-    int offset_ms;
-    bool is_active;
-} client_t; 
+  // client_data
+  int fd;
+  int offset_ms;
+  bool is_active;
+} client_t;
 
-typedef struct 
-{
-    client_t client;
-    // player_data
-    uint32_t id; 
-    bool is_ready;
-    bool is_alive;
-    // another thing yet to come like bird and such...
-} player_t; 
+typedef struct {
+  client_t client;
+  // player_data
+  uint32_t id;
+  bool is_ready;
+  bool is_alive;
+  // another thing yet to come like bird and such...
+} player_t;
 // move to game.h?
 
 typedef struct {
-    // data
-    char is_ready;
-    int id;
-    uint64_t timestamp;
-    player_t* players_array;
-    player_t player;
+  // data
+  char is_ready;
+  int id;
+  uint64_t timestamp;
+  player_t *players_array;
+  player_t player;
 } packet_fields;
 
 // Game Packets
-typedef enum  {
+typedef enum {
 
-    // anytime
-    TYPE_REQ_LEAVE,
-    TYPE_BROADCAST_LEAVE, 
-    TYPE_REQ_PING,
-    TYPE_RESP_PING,
+  // anytime
+  TYPE_REQ_LEAVE,
+  TYPE_BROADCAST_LEAVE,
+  TYPE_REQ_PING,
+  TYPE_RESP_PING,
 
-    TYPE_RESP_UPDATE_ARRAY, 
-    // stage 1 - wait for players to join or get ready
+  TYPE_RESP_UPDATE_ARRAY,
+  // stage 1 - wait for players to join or get ready
 
-    TYPE_REQ_JOIN, 
-    TYPE_RESP_JOIN,
-    TYPE_BROADCAST_JOIN,
-    TYPE_REQ_READY,
-    TYPE_BROADCAST_READY,
+  TYPE_REQ_JOIN,
+  TYPE_RESP_JOIN,
+  TYPE_BROADCAST_JOIN,
+  TYPE_REQ_READY,
+  TYPE_BROADCAST_READY,
 
-    // stage 2 -  before the game starts, sync time with all clients.
-    TYPE_REQ_TIMESTAMP, 
-    TYPE_RESP_TIMESTAMP,
-    // stage 3 - broadcast a start game
-    TYPE_BROADCAST_START_GAME, // the server sends at the begining of the game
-    // stage 4 - IN GAME
-    TYPE_REQ_UPDATE_STATE, // client notifies server of keyboard press for example
-    TYPE_BROADCAST_UPDATE_STATE, // server updates other clients
+  // stage 2 -  before the game starts, sync time with all clients.
+  TYPE_REQ_TIMESTAMP,
+  TYPE_RESP_TIMESTAMP,
+  // stage 3 - broadcast a start game
+  TYPE_BROADCAST_START_GAME, // the server sends at the begining of the game
+  // stage 4 - IN GAME
+  TYPE_REQ_UPDATE_STATE, // client notifies server of keyboard press for example
+  TYPE_BROADCAST_UPDATE_STATE, // server updates other clients
 
-    TYPE_INVALID
-    // POST GAME (?)
+  TYPE_INVALID
+  // POST GAME (?)
 } packet_type;
 
-
 typedef enum {
-    STAGE_WAIT_FOR_PLAYERS,
-    STAGE_SYNC_TIME,
-    STAGE_START_GAME,
-    STAGE_GAME, // in game
+  STAGE_WAIT_FOR_PLAYERS,
+  STAGE_SYNC_TIME,
+  STAGE_START_GAME,
+  STAGE_GAME, // in game
 } stage;
