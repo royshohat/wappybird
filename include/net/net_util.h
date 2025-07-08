@@ -5,6 +5,7 @@
 
 uint32_t get_packet_size(packet_type type);
 void print_packet(packet_type type, packet_fields *fields);
+void clear_socket_buffer(int);
 
 // Draft documentation:
 

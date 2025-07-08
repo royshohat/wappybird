@@ -1,8 +1,10 @@
 #pragma once
 
 #include "common/game_const.h"
+#include "netinet/in.h"
 #include <stdbool.h>
 #include <stdint.h>
+#include <unistd.h>
 
 #define MAX_DATA_LENGTH 1024
 #define MAX_CLIENT_COUNT 5
@@ -57,6 +59,8 @@ typedef struct {
   // client_data
   int fd;
   int offset_ms;
+  struct sockaddr_in addr;
+  socklen_t addr_len;
   bool is_active;
 } client_t;
 

@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -7,10 +6,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#include "common/game.h"
-#include "net/net.h"
-#include "net/net_const.h"
-#include "net/network.h"
+#include "net/net_util.h"
 
 uint32_t get_packet_size(packet_type type) {
   switch (type) {
@@ -108,7 +104,7 @@ void print_packet(packet_type type, packet_fields *fields) {
   }
 
   printf("DATA: ");
-  for (int i = 0; i < get_packet_size(type); i++) {
+  for (uint32_t i = 0; i < get_packet_size(type); i++) {
     printf("%x ", data[i]);
   }
   printf("\n");

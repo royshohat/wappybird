@@ -55,11 +55,6 @@ int send_packet(int fd, packet_type type, packet_fields *fields) {
     printf("send: not implemented.\n");
     return 1;
   }
-
-  for (uint32_t i = 0; i < SIZE_HEADER + get_packet_size(type); i++) {
-    printf("%x ", msg_buffer[i]);
-  }
-  printf("\n");
   send(fd, msg_buffer, SIZE_HEADER + get_packet_size(type), 0);
   return 0;
 }

@@ -1,29 +1,26 @@
 #include <errno.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdbool.h>
 #include <limits.h>
+#include <netinet/in.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
-
-#include <sys/socket.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 
-#include <signal.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/select.h>
-
 
 #include <fcntl.h>
 
-#include "networking/net.h" 
-#include "networking/network.h"
-#include "utils/util.h"
 #include "common/game.h"
 #include "common/game_const.h"
-#include "networking/net_const.h"
-
+#include "net/net.h"
+#include "net/net_const.h"
+#include "utils/util.h"
 
 stage game_stage = STAGE_WAIT_FOR_PLAYERS;
 
@@ -32,117 +29,138 @@ stage game_stage = STAGE_WAIT_FOR_PLAYERS;
 // &ptr -> (int**)
 // pthread_join(id, (void**)&ptr);
 
-
 bool is_game_stage_equal(stage gs);
-void wait_ready(player_t* players, size_t* player_count);
-void time_sync(player_t* ptrPlayer);
-void main_loop();
-void* handle_client(void* args);
-int accept_client(int sockfd, struct sockaddr_in* server_addr, client_t* clients, size_t* ptrClient_count); 
+void wait_ready(player_t *players, size_t *player_count);
+void time_sync(player_t *ptrPlayer);
+void main_loop(vars_t *game_vars);
+int handle_client(vars_t *game_vars);
+int accept_client(int sockfd, client_t *clients, size_t *client_count_p);
 
 int main() {
-    vars_t game_vars;
+  vars_t game_vars;
 
+  if (init_networking(&game_vars) != 0)
+    return -1;
+  if (init_game(&game_vars) != 0)
+    return -1;
 
-    if (init_networking(&game_vars)!= 0) return -1;
-    if (init_game(&game_vars)!= 0) return -1;
+  // ****************************TODO**************************************
+  //      - write main loop with select
+  //      remember to move part of the code from handle client to the main loop
+  //      when creating it handle closed sockets in select
 
-    // ****************************TODO**************************************
-    //      - write main loop with select 
-    //      remember to move part of the code from handle client to the main loop when creating it
-    //      handle closed sockets in select 
-        
-    main_loop();
-    
-        
-    printf("End.\n");
-    return;
+  // TODO: Thread this call.
+  main_loop(&game_vars);
+
+  printf("End.\n");
+  return 0;
 }
 
-void main_loop() {
-    fd_set sockets;
-    FD_ZERO(&sockets);
-    
-    while (!0) {
-
-    }
-}
-
-void wait_ready(player_t* players, size_t* player_count) {
-
-    for (int i=0; i < MAX_PLAYER_COUNT; i++) {
-        if (!players[i].client.is_active) continue;
-        if (!players[i].is_ready) {
-            return;
-        }
-    }
-    
-    // everyone is ready
-    // checks for less then 2 players
-    // as it's the bare minimum
-    if ((*player_count < 2)) return;
-    // if all conditions are met, update game stage.
-    game_stage = STAGE_SYNC_TIME;
-}
-
-
-int accept_client(int sockfd, struct sockaddr_in* server_addr, 
-                   client_t* clients, size_t* ptrClient_count) {
-    
-    int client_fd;
-
-    // test for max client count..
-    if (*ptrClient_count == MAX_CLIENT_COUNT || game_stage != STAGE_GAME) {
-        printf("MAX_CLIENT_COUNT=%d REACHED.\n", MAX_CLIENT_COUNT);
-
-        int flags = fcntl(sockfd, F_GETFL, 0);
-        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
-        int fd = accept(sockfd, NULL, NULL);
-        if (fd != -1) close(fd); // close the connection in the face cause server is full
-        // restore server socket flags to blocking again
-        fcntl(sockfd, F_SETFL, flags); 
-        return NULL; 
-    }
-        
-    
-    
-    if(((client_fd = accept(sockfd, NULL, NULL)) < 0)){
-        perror("accept: ");
-        return NULL; 
-    }
-    printf("Got A Conncection! (fd: %d)\n",client_fd);
-    
-    //construction
-    int free_idx = -1;
-    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-        if (!clients[i].is_active) {
-            free_idx = i;
+void main_loop(vars_t *game_vars) {
+  fd_set sockets;
+  FD_ZERO(&sockets);
+  FD_SET(game_vars->server_fd, &sockets);
+  int nfds = 1; // number of file descriptors in set.
+  while (!0) {
+    // dont care about write and error
+    // wait forever. (the reason this is in a thread)
+    int ready_fd = select(nfds, &sockets, NULL, NULL, NULL);
+    if (ready_fd == game_vars->server_fd) {
+      // new connection
+      int fd = accept_client(game_vars->server_fd, game_vars->clients,
+                             &game_vars->client_count);
+      FD_SET(fd, &sockets); // add to listening set
+    } else {
+      // client action
+      char buf[1];
+      // peek a the client scoket buffer to see if it closed.
+      ssize_t ret = recv(ready_fd, buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
+      if (ret == 0) {
+        // client closing action
+        FD_CLR(ready_fd, &sockets);
+        // cleanup: look for the client in the array and remove the client.
+        for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
+          if (!game_vars->clients[i].is_active)
+            continue;
+          if (game_vars->clients[i].fd == ready_fd) {
+            game_vars->clients[i].is_active = false;
             break;
+          }
         }
+        continue; // back to select call
+      } else if (ret < 0) {
+        perror("recv: ");
+      }
+      handle_client(game_vars);
     }
-    // assert
-    if (free_idx == -1) {
-        printf("Something bad happend! possible severe memory leak????? \n");
-        return NULL;
-    }
-    clients[free_idx].fd = client_fd;
-    clients[free_idx].offset_ms = INT_MAX; // change me
-    clients[free_idx].is_active = true;
-
-    
-    (*ptrClient_count)++;
-    
-    return 0;
+  }
 }
 
+void wait_ready(player_t *players, size_t *player_count) {
 
-void* handle_client(void* args) {
-    // todo : validation of of stages 
+  for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+    if (!players[i].client.is_active)
+      continue;
+    if (!players[i].is_ready) {
+      return;
+    }
+  }
 
-    while(!0) {
-        
-        if (is_game_stage_equal(STAGE_SYNC_TIME) && ptrThisPlayer->client.offset_ms == INT_MAX) {
-            time_sync(ptrThisPlayer);
+  // everyone is ready
+  // checks for less then 2 players
+  // as it's the bare minimum
+  if ((*player_count < 2))
+    return;
+  // if all conditions are met, update game stage.
+  game_stage = STAGE_SYNC_TIME;
+}
+
+int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
+  int fd;
+  // test for max client count..
+  if (*client_count_p == MAX_CLIENT_COUNT) {
+    printf("MAX_CLIENT_COUNT=%d REACHED.\n", MAX_CLIENT_COUNT);
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+    fd = accept(sockfd, NULL, NULL);
+    if (fd != -1)
+      close(fd); // close the connection in the face cause server is full
+    // restore server socket flags to blocking again
+    fcntl(sockfd, F_SETFL, flags);
+    return -1;
+  }
+  // look where the free space is and accept.
+  for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
+    if (!clients[i].is_active)
+      continue;
+    fd = accept(sockfd, (struct sockaddr *)&clients[i].addr,
+                &clients[i].addr_len);
+    if (fd < 0) {
+      perror("accept: ");
+      return -1;
+    }
+    clients[i].fd = fd;
+    clients[i].is_active = true;
+    clients[i].offset_ms = 0; // default value. change later;
+
+    printf("Got A Conncection! (ip:%s, fd: %d)\n",
+           inet_ntoa(clients[i].addr.sin_addr), fd);
+  }
+
+  (*client_count_p)++;
+
+  return fd;
+}
+
+int handle_client(vars_t *game_vars) {
+  // todo : validation of of stages
+
+  while (!0) {
+    break;
+    /*
+        if (is_game_stage_equal(STAGE_SYNC_TIME) &&
+            ptrThisPlayer->client.offset_ms == INT_MAX) {
+          time_sync(ptrThisPlayer);
         }
         printf("Receiving a packet\n");
         type = recv_packet(ptrThisPlayer->client.fd, &fields);
@@ -150,16 +168,14 @@ void* handle_client(void* args) {
         fflush(stdout);
 
         pthread_mutex_lock(&lock_players);
-        int res = handle_packet(ptrThisPlayer->client.fd, type, &fields, ptrPlayers, ptrPlayer_count);
-        printf("handle result: %d\n", res);
+        int res = handle_packet(ptrThisPlayer->client.fd, type, &fields,
+       ptrPlayers, ptrPlayer_count); printf("handle result: %d\n", res);
         pthread_mutex_unlock(&lock_players);
 
-        if(type == TYPE_REQ_LEAVE){
-            printf("closing file des : %d\n", ptrThisPlayer->client.fd);
-            return NULL;
-        }
-
-    } 
-   return NULL; 
-
+        if (type == TYPE_REQ_LEAVE) {
+          printf("closing file des : %d\n", ptrThisPlayer->client.fd);
+          return NULL;
+        } */
+  }
+  return NULL;
 }
