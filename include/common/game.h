@@ -6,7 +6,6 @@
 typedef struct {
   // network
   int server_fd;
-  struct sockaddr_in server_addr;
   client_t clients[MAX_CLIENT_COUNT * sizeof(client_t)];
   size_t client_count;
 
