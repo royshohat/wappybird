@@ -1,0 +1,19 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-Iinclude",
+      "-g",
+      "-Wall",
+      "-Wextra",
+      "-std=gnu17",
+      "-c",
+      "-o",
+      "build/client/client.o",
+      "src/client/client.c"
+    ],
+    "directory": "/home/mazda/src/wappybird",
+    "file": "/home/mazda/src/wappybird/src/client/client.c",
+    "output": "/home/mazda/src/wappybird/build/client/client.o"
+  }
+]
