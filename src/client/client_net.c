@@ -8,7 +8,9 @@
 #include <unistd.h>
 
 #include "common/game.h"
+#include "net/net.h"
 #include "net/net_util.h"
+#include "utils/util.h"
 
 packet_type recv_packet(int fd, packet_fields *fields) {
   if (fd <= 0) {
@@ -80,7 +82,7 @@ int send_packet(int fd, packet_type type, packet_fields *fields) {
     printf("send: not implemented.\n");
     return ENOSYS;
   }
-  for (uint i = 0; i < SIZE_HEADER + get_packet_size(type); i++) {
+  for (uint32_t i = 0; i < SIZE_HEADER + get_packet_size(type); i++) {
     printf("%x ", msg_buffer[i]);
   }
   printf("\n");
@@ -88,32 +90,34 @@ int send_packet(int fd, packet_type type, packet_fields *fields) {
   return 0;
 }
 
-int init(int *sockfd, struct sockaddr_in *server_addr) {
+int init_networking(vars_t *game_vars) {
 
   // Create socket
-  *sockfd = socket(AF_INET, SOCK_STREAM, 0);
-  if (*sockfd < 0) {
+  game_vars->server_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (game_vars->server_fd < 0) {
     perror("Socket creation failed");
     return 1;
   }
 
   // Set server address
-  memset(server_addr, 0, sizeof(*server_addr)); // Clear memory
-  server_addr->sin_family = AF_INET;            // IPv4
-  server_addr->sin_port = htons(SERVER_PORT);   // Server port to big endian
-  if (inet_pton(AF_INET, SERVER_IP, &server_addr->sin_addr) <= 0) {
+  struct sockaddr_in server_addr;
+  memset(&server_addr, 0, sizeof(server_addr)); // Clear memory
+  server_addr.sin_family = AF_INET;             // IPv4
+  server_addr.sin_port = htons(SERVER_PORT);    // Server port to big endian
+  if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_port) <= 0) {
     perror("Invalid address / Address not supported");
-    close(*sockfd);
+    close(game_vars->server_fd);
     return 1;
   }
 
   // Connect to the server
-  if (connect(*sockfd, (struct sockaddr *)server_addr, sizeof(*server_addr)) <
-      0) {
+  if (connect(game_vars->server_fd, (struct sockaddr *)&server_addr,
+              sizeof(server_addr)) < 0) {
     perror("Connection failed");
-    close(*sockfd);
+    close(game_vars->server_fd);
     return 1;
   }
+  return 0;
   // int n;
   // char buf[SIZE_HEADER];
   // usleep(250 * 1000); // qureter of a sec
@@ -134,6 +138,4 @@ int init(int *sockfd, struct sockaddr_in *server_addr) {
   // recv(*sockfd, buf, sizeof(buf), 0);
 
   // recv(*sockfd, id, *(uint32_t*) &buf[1], 0);
-
-  return 0;
 }

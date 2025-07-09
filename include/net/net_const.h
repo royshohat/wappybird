@@ -57,15 +57,6 @@
 #define SIZE_REQ_UPDATE_STATE 0     // TODO
 
 typedef struct {
-  // client_data
-  int fd;
-  int offset_ms;
-  struct sockaddr_in addr;
-  socklen_t addr_len;
-  bool is_active;
-} client_t;
-
-typedef struct {
   // data
   char is_ready;
   int id;

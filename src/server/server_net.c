@@ -105,10 +105,10 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
   case TYPE_REQ_LEAVE:
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
       // set the player with the current fd to is_active = false.
-      if (!players_arr[i].client.is_active)
+      if (!players_arr[i].client->is_active)
         continue;
-      if (players_arr[i].client.fd == fd) {
-        players_arr[i].client.is_active = false;
+      if (players_arr[i].client->fd == fd) {
+        players_arr[i].client->is_active = false;
         close(fd);
         break;
       }
@@ -121,9 +121,9 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
     // find the current player object (stored in player struct)
     player_t *player = players_arr; // default value
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-      if (!players_arr[i].client.is_active)
+      if (!players_arr[i].client->is_active)
         continue;
-      if (players_arr[i].client.fd == fd) {
+      if (players_arr[i].client->fd == fd) {
         if (players_arr[i].is_alive)
           return 1; // already joined
         player = (players_arr + i);
@@ -135,10 +135,10 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
     player->is_alive = true;
 
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-      if (!players_arr[i].client.is_active || (players_arr + i) == player)
+      if (!players_arr[i].client->is_active || (players_arr + i) == player)
         continue;
       fields->id = player->id;
-      send_packet(player->client.fd, TYPE_BROADCAST_JOIN, fields);
+      send_packet(player->client->fd, TYPE_BROADCAST_JOIN, fields);
     }
 
     break;
@@ -155,7 +155,7 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
   return 0;
 }
 
-int init(vars_t *vars) {
+int init_networking(vars_t *vars) {
   vars->server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (vars->server_fd == -1) {
     perror("Error creating a socket.");

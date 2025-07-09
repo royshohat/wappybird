@@ -19,6 +19,7 @@
 #include "common/game.h"
 #include "common/game_const.h"
 #include "common/player.h"
+#include "net/client.h"
 #include "net/net.h"
 #include "net/net_const.h"
 
@@ -41,11 +42,6 @@ int main() {
 
   if (init_networking(&game_vars) != 0)
     return 1;
-
-  // ****************************TODO**************************************
-  //      - write main loop with select
-  //      remember to move part of the code from handle client to the main loop
-  //      when creating it handle closed sockets in select
 
   // TODO: Thread this call.
   main_loop(&game_vars);
@@ -97,7 +93,6 @@ void main_loop(vars_t *game_vars) {
 void wait_ready(player_t *players, size_t *player_count) {
 
   for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-    typedef struct client_t client_t;
     if (!players[i].client->is_active)
       continue;
     if (!players[i].is_ready) {

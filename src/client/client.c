@@ -12,6 +12,7 @@
 #include "utils/util.h"
 
 void *listen_to_server(void *args);
+int mainloop(vars_t *game_vars);
 
 typedef struct {
   player_t *players;
@@ -23,14 +24,14 @@ int main() {
 
   vars_t game_vars;
 
-  init_networking(&game_vars);
-  init_game(&game_vars);
+  if (init_networking(&game_vars) != 0)
+    return 1;
 
   printf("Connected to server! %s:%d (fd: %d)\n", SERVER_IP, SERVER_PORT,
-         sockfd);
+         game_vars.server_fd);
 
-  pthread_t t_id;
-  pthread_create(&t_id, NULL, listen_to_server, NULL);
+  mainloop(&game_vars);
+  return 0;
 }
 
 int mainloop(vars_t *game_vars) {

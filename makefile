@@ -23,7 +23,7 @@ BINDIR = bin
 # Create lists of source files for each component.
 # The wildcard function automatically finds all .c files in a directory.
 COMMON_SRCS = $(wildcard $(SRCDIR)/common/*.c)
-NET_SRCS = $(wildcard $(SRCDIR)/networking/*.c)
+NET_SRCS = $(wildcard $(SRCDIR)/net/*.c)
 GRAPHICS_SRCS = $(wildcard $(SRCDIR)/graphics/*.c)
 UTILS_SRCS = $(wildcard $(SRCDIR)/utils/*.c)
 SERVER_SRCS = $(wildcard $(SRCDIR)/server/*.c)
@@ -53,7 +53,7 @@ SDL_LIBS = $(shell pkg-config --libs sdl3)
 all: client server
 
 # Recipe to build the server executable.
-# It depends on its own object files plus the common, networking, and utils object files.
+# It depends on its own object files plus the common, net, and utils object files.
 server: $(SERVER_OBJS) $(COMMON_OBJS) $(NET_OBJS) $(UTILS_OBJS)
 	@echo "Linking server..."
 	@mkdir -p $(BINDIR) # Ensure the bin directory exists

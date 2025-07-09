@@ -1,12 +1,13 @@
 #pragma once
 
+#include "net/client.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 struct client_t;
 
 typedef struct {
-  struct client_t *client; // forward definition
+  client_t *client;
   // player_data
   uint32_t id;
   bool is_ready;
