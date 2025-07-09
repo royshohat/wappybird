@@ -18,9 +18,9 @@
 
 #include "common/game.h"
 #include "common/game_const.h"
+#include "common/player.h"
 #include "net/net.h"
 #include "net/net_const.h"
-#include "utils/util.h"
 
 stage game_stage = STAGE_WAIT_FOR_PLAYERS;
 
@@ -40,9 +40,7 @@ int main() {
   vars_t game_vars;
 
   if (init_networking(&game_vars) != 0)
-    return -1;
-  if (init_game(&game_vars) != 0)
-    return -1;
+    return 1;
 
   // ****************************TODO**************************************
   //      - write main loop with select
@@ -76,7 +74,7 @@ void main_loop(vars_t *game_vars) {
       // peek a the client scoket buffer to see if it closed.
       ssize_t ret = recv(ready_fd, buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
       if (ret == 0) {
-        // client closing action
+        // close the client
         FD_CLR(ready_fd, &sockets);
         // cleanup: look for the client in the array and remove the client.
         for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
@@ -99,7 +97,8 @@ void main_loop(vars_t *game_vars) {
 void wait_ready(player_t *players, size_t *player_count) {
 
   for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-    if (!players[i].client.is_active)
+    typedef struct client_t client_t;
+    if (!players[i].client->is_active)
       continue;
     if (!players[i].is_ready) {
       return;
@@ -153,6 +152,7 @@ int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
 }
 
 int handle_client(vars_t *game_vars) {
+  return 0;
   // todo : validation of of stages
 
   while (!0) {
@@ -177,5 +177,4 @@ int handle_client(vars_t *game_vars) {
           return NULL;
         } */
   }
-  return NULL;
 }

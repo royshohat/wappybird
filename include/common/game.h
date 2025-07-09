@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/player.h"
 #include "net/net_const.h"
 #include <netinet/in.h>
 

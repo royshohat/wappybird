@@ -1,4 +1,4 @@
-#include "common/game.h"
+#include "net/net.h"
 #include "net/net_util.h"
 
 #include <arpa/inet.h> // for sockaddr_in, inet_pton()
@@ -119,7 +119,7 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
     break;
   case TYPE_REQ_JOIN:
     // find the current player object (stored in player struct)
-    player_t *player;
+    player_t *player = players_arr; // default value
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
       if (!players_arr[i].client.is_active)
         continue;
@@ -165,16 +165,18 @@ int init(vars_t *vars) {
   int enabled = 1;
   (void)setsockopt(vars->server_fd, SOL_SOCKET, SO_REUSEADDR, &enabled,
                    sizeof(enabled));
-  // nice to have, lets run bin files in a row
+  // nice to have, let us run server file a few times in a row without binding
+  // issues.
   // delete in production.
 
-  memset(&vars->server_addr, 0, sizeof(vars->server_addr));
-  vars->server_addr.sin_family = AF_INET;
-  vars->server_addr.sin_addr.s_addr = INADDR_ANY;
-  vars->server_addr.sin_port = htons(TCP_PORT);
+  struct sockaddr_in server_addr;
+  memset(&server_addr, 0, sizeof(server_addr));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = INADDR_ANY;
+  server_addr.sin_port = htons(TCP_PORT);
 
-  if (bind(vars->server_fd, (struct sockaddr *)&vars->server_addr,
-           sizeof(vars->server_addr)) == -1) {
+  if (bind(vars->server_fd, (struct sockaddr *)&server_addr,
+           sizeof(server_addr)) == -1) {
     perror("Error binding address.");
     close(vars->server_fd);
     return 1;

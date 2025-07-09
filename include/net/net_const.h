@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/game_const.h"
+#include "common/player.h"
 #include "netinet/in.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -9,7 +10,7 @@
 #define MAX_DATA_LENGTH 1024
 #define MAX_CLIENT_COUNT 5
 #define TCP_PORT 8080
-#define UDP_PORT 9000
+#define UDP_PORT 9000 // not in use.
 #define READY 1
 #define UNREADY 2
 
@@ -65,22 +66,12 @@ typedef struct {
 } client_t;
 
 typedef struct {
-  client_t client;
-  // player_data
-  uint32_t id;
-  bool is_ready;
-  bool is_alive;
-  // another thing yet to come like bird and such...
-} player_t;
-// move to game.h?
-
-typedef struct {
   // data
   char is_ready;
   int id;
   uint64_t timestamp;
   player_t *players_array;
-  player_t player;
+  player_t *player; // use static variable instead?
 } packet_fields;
 
 // Game Packets

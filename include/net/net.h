@@ -1,5 +1,8 @@
 #pragma once
 
+// both client_net.c and server_net.c
+// implement this header.
+
 #include "common/game.h"
 #include "net/net_const.h"
 #include <netinet/in.h>
