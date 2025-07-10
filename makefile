@@ -9,7 +9,7 @@ CC = gcc
 # -Wall turns on all major warnings.
 # -Wextra turns on even more warnings.
 # -std=c11 specifies the C standard.
-CFLAGS = -Iinclude -g -Wall -Wextra -std=gnu17 
+CFLAGS = -Iinclude -g -Wall -Wextra -std=gnu17 -Wno-unused-variable
 # LDFLAGS: Flags for linking.
 LDFLAGS =
 
