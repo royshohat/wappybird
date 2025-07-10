@@ -6,7 +6,18 @@
 #include <string.h>
 #include <sys/socket.h>
 
+#include "net/net.h"
+#include "net/net_const.h"
 #include "net/net_util.h"
+
+void broadcast(player_t *sender, player_t *players, packet_type type,
+               packet_fields *fields) {
+  for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+    if (!players[i].is_active || sender == &players[i])
+      continue;
+    send_packet(players[i].client->fd, type, fields);
+  }
+}
 
 uint32_t get_packet_size(packet_type type) {
   switch (type) {

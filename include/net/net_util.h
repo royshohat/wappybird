@@ -3,6 +3,9 @@
 
 #include "net_const.h"
 
+void broadcast(player_t *sender, player_t *clients, packet_type type,
+               packet_fields *fields);
+
 uint32_t get_packet_size(packet_type type);
 void print_packet(packet_type type, packet_fields *fields);
 void clear_socket_buffer(int);
@@ -40,8 +43,8 @@ void clear_socket_buffer(int);
 // size_t id
 
 // TYPE_RESP_UPDATE_ARRAY
-// total size = MAX_PLAYER_COUNT * sizeof (client_t)
-// client_t* clients_array
+// total size = MAX_PLAYER_COUNT * sizeof (player_t)
+// player_t* clients_array
 
 // TYPE_BROADCAST_JOIN
 // total size = sizeof player_t
