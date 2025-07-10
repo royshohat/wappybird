@@ -6,6 +6,6 @@ typedef enum {
   LOG_WARNING,
 } log_type;
 
-#define MAX_LOG_LENGTH 1023 // log single message max length.
+#define LOG_PREFIX_BUFFER_LEN 1023 // log single message max length.
 
-void logger(log_type type, const char *msg);
+void logger(int fd, log_type type, const char *msg, ...);

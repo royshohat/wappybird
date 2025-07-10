@@ -1,15 +1,22 @@
 
 #include "utils/logger.h"
+#include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
-void logger(log_type type, const char *msg) {
-  char buffer[MAX_LOG_LENGTH + 1]; // one for the null!
+void logger(int fd, log_type type, const char *msg, ...) {
+  va_list ap;
+  va_start(ap, msg);
+
+  // simple printf wrapper function.
+  char buffer[LOG_PREFIX_BUFFER_LEN]; // one for the null!
   memset(buffer, 0, sizeof(buffer));
   time_t now = time(NULL);
   struct tm *tm_info = localtime(&now);
-  strftime(buffer, MAX_LOG_LENGTH, "%Y-%m-%d %H:%M:%S", tm_info);
+  strftime(buffer, LOG_PREFIX_BUFFER_LEN, "%Y-%m-%d %H:%M:%S", tm_info);
   int len = strlen(buffer);
 
   const char *type_prefix;
@@ -29,9 +36,19 @@ void logger(log_type type, const char *msg) {
   }
   memcpy(buffer + len, type_prefix, strlen(type_prefix));
   len += strlen(type_prefix);
-  memcpy(buffer + len, msg, strlen(msg));
+  if (len > LOG_PREFIX_BUFFER_LEN) {
+    len = LOG_PREFIX_BUFFER_LEN;
+    buffer[len] = '\0';
+  }
 
-  printf("%s", buffer);
+  // to stdout
+  // printf(buffer); // we are good cause memset
+  // vprintf(msg, ap);
+  // printf("\n");
 
-  // TODO: write to a file log.txt
+  // also write the to a file
+  write(fd, buffer, len);
+  vdprintf(fd, msg, ap);
+
+  close(fd);
 }
