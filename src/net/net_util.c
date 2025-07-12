@@ -19,6 +19,25 @@ void broadcast(player_t *sender, player_t *players, packet_type type,
   }
 }
 
+void wait_ready(player_t *players, size_t *player_count) {
+
+  for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+    if (!players[i].client->is_active)
+      continue;
+    if (!players[i].is_ready) {
+      return;
+    }
+  }
+
+  // everyone is ready
+  // checks for less then 2 players
+  // as it's the bare minimum
+  if (*player_count < 2)
+    return;
+  // if all conditions are met, update game stage.
+  game_stage = STAGE_SYNC_TIME;
+}
+
 uint32_t get_packet_size(packet_type type) {
   switch (type) {
   case TYPE_REQ_LEAVE:

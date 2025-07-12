@@ -143,7 +143,17 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
 
     break;
   case TYPE_REQ_READY:
-    break;
+    for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+      // set the player with the current fd to is_active = false.
+      if (!players_arr[i].client->is_active)
+        continue;
+      if (players_arr[i].client->fd == fd) {
+        players_arr[i].is_ready = true;
+        break;
+      }
+    }
+    wait_ready(game_vars->players, *(game_vars->players_count));
+    break; 
   case TYPE_RESP_TIMESTAMP:
     break;
   case TYPE_REQ_UPDATE_STATE:

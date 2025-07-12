@@ -31,7 +31,6 @@ stage game_stage = STAGE_WAIT_FOR_PLAYERS;
 // pthread_join(id, (void**)&ptr);
 
 bool is_game_stage_equal(stage gs);
-void wait_ready(player_t *players, size_t *player_count);
 void time_sync(player_t *ptrPlayer);
 void main_loop(vars_t *game_vars);
 int handle_client(vars_t *game_vars);
@@ -67,7 +66,7 @@ void main_loop(vars_t *game_vars) {
     } else {
       // client action
       char buf[1];
-      // peek a the client scoket buffer to see if it closed.
+      // peek at the client scoket buffer to see if it closed.
       ssize_t ret = recv(ready_fd, buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
       if (ret == 0) {
         // close the client
@@ -85,35 +84,21 @@ void main_loop(vars_t *game_vars) {
       } else if (ret < 0) {
         perror("recv: ");
       }
-      handle_client(game_vars);
+      handle_client(game_vars); //whats with the hanle client this isnt a function no more
+      // i think you meant handle packet or somthing 
     }
   }
-}
-
-void wait_ready(player_t *players, size_t *player_count) {
-
-  for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-    if (!players[i].client->is_active)
-      continue;
-    if (!players[i].is_ready) {
-      return;
-    }
-  }
-
-  // everyone is ready
-  // checks for less then 2 players
-  // as it's the bare minimum
-  if ((*player_count < 2))
-    return;
-  // if all conditions are met, update game stage.
-  game_stage = STAGE_SYNC_TIME;
 }
 
 int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
   int fd;
-  // test for max client count..
-  if (*client_count_p == MAX_CLIENT_COUNT) {
-    printf("MAX_CLIENT_COUNT=%d REACHED.\n", MAX_CLIENT_COUNT);
+  // test for max client count or if the game is already underway
+  if (*client_count_p == MAX_CLIENT_COUNT || game_stage != STAGE_WAIT_FOR_PLAYERS) {
+    if(*client_count_p == MAX_CLIENT_COUNT)
+      printf("MAX_CLIENT_COUNT=%d REACHED.\n", MAX_CLIENT_COUNT);
+    else
+      printf("Game already in progress!\n", MAX_CLIENT_COUNT);
+
     int flags = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
     fd = accept(sockfd, NULL, NULL);
@@ -123,6 +108,7 @@ int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
     fcntl(sockfd, F_SETFL, flags);
     return -1;
   }
+  
   // look where the free space is and accept.
   for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
     if (!clients[i].is_active)
