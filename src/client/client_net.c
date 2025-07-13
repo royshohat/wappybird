@@ -10,6 +10,7 @@
 #include "common/game.h"
 #include "net/net.h"
 #include "net/net_util.h"
+#include "utils/logger.h"
 #include "utils/util.h"
 
 packet_type recv_packet(int fd, packet_fields *fields) {
@@ -104,7 +105,7 @@ int init_networking(vars_t *game_vars) {
   memset(&server_addr, 0, sizeof(server_addr)); // Clear memory
   server_addr.sin_family = AF_INET;             // IPv4
   server_addr.sin_port = htons(SERVER_PORT);    // Server port to big endian
-  if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_port) <= 0) {
+  if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr) <= 0) {
     perror("Invalid address / Address not supported");
     close(game_vars->server_fd);
     return 1;

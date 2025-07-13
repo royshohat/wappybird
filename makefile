@@ -45,12 +45,17 @@ CLIENT_OBJS = $(patsubst $(SRCDIR)/%.c, $(BUILDDIR)/%.o, $(CLIENT_SRCS))
 SDL_CFLAGS = $(shell pkg-config --cflags sdl3)
 SDL_LIBS = $(shell pkg-config --libs sdl3)
 
+DEBUG_FLAGS = -g -O0 -DDEBUG
 # 4. Targets (The Recipes)
 # ------------------------
 
 # The 'all' target is the default. Typing 'make' will run this.
 # It depends on the 'client' and 'server' targets.
 all: client server
+
+# write debug to make all into object files
+debug: CFLAGS += $(DEBUG_FLAGS)
+debug: clean all
 
 # Recipe to build the server executable.
 # It depends on its own object files plus the common, net, and utils object files.

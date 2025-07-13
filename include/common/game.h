@@ -18,6 +18,10 @@ typedef struct {
   //player_t players[MAX_PLAYER_COUNT * sizeof(player_t)];
   player_t players[MAX_PLAYER_COUNT];
   size_t players_count;
+
+  // other
+  // int log_fd;
 } vars_t;
 
 int init_game(vars_t *vars);
+int init_log(vars_t *vars);

@@ -8,3 +8,5 @@ int init_game(vars_t *game_vars) {
   game_vars->players_count = 0;
   return 0;
 }
+
+int init_log(vars_t *game_vars) { return 0; }

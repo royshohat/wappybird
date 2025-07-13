@@ -95,7 +95,7 @@ packet_type recv_packet(int fd, packet_fields *fields) {
 }
 
 int handle_packet(int fd, packet_type type, packet_fields *fields,
-                  player_t *players_arr, size_t *player_count) {
+                  vars_t *game_vars) {
   // not thread safe
   // destroys fields.
   switch (type) {
@@ -103,30 +103,36 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
 
     break;
   case TYPE_REQ_LEAVE:
+    // player_p = client_to_player(this_client, game_vars->players);
+    // if (player_p == NULL)
+    //   return 1; // didnt join so cant leave.
+    // fields.id = player_p->id;
+    // broadcast(player_p, game_vars->players, TYPE_BROADCAST_LEAVE, &fields);
+    break;
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
       // set the player with the current fd to is_active = false.
-      if (!players_arr[i].client->is_active)
+      if (!game_vars->players[i].client->is_active)
         continue;
-      if (players_arr[i].client->fd == fd) {
-        players_arr[i].client->is_active = false;
+      if (game_vars->players[i].client->fd == fd) {
+        game_vars->players[i].client->is_active = false;
         close(fd);
         break;
       }
     }
     // decrement player count
-    (*player_count)--;
+    (game_vars->players_count)--;
 
     break;
   case TYPE_REQ_JOIN:
     // find the current player object (stored in player struct)
-    player_t *player = players_arr; // default value
+    player_t *player = game_vars->players; // default value
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-      if (!players_arr[i].client->is_active)
+      if (!game_vars->players[i].client->is_active)
         continue;
-      if (players_arr[i].client->fd == fd) {
-        if (players_arr[i].is_alive)
+      if (game_vars->players[i].client->fd == fd) {
+        if (game_vars->players[i].is_alive)
           return 1; // already joined
-        player = (players_arr + i);
+        player = (game_vars->players + i);
         break;
       }
     }
@@ -135,7 +141,8 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
     player->is_alive = true;
 
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
-      if (!players_arr[i].client->is_active || (players_arr + i) == player)
+      if (!game_vars->players[i].client->is_active ||
+          (game_vars->players + i) == player)
         continue;
       fields->id = player->id;
       send_packet(player->client->fd, TYPE_BROADCAST_JOIN, fields);
@@ -143,17 +150,33 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
 
     break;
   case TYPE_REQ_READY:
+    // Todo: integrate
+    // if (game_vars->players_count == MAX_PLAYER_COUNT)
+    //   return 1;
+    // for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
+    //   if (game_vars->players[i].is_active)
+    //     continue; // skip filled slots
+    //   player_p = &game_vars->players[i];
+    //   // TODO: seperate into a function.
+    //   player_p->is_active = true;
+    //   player_p->client = this_client;
+    //   player_p->id = id_count;
+    //   id_count++;
+    //   player_p->is_alive = true;
+    //   player_p->is_ready = false;
+    // }
+    // broadcast(player_p, game_vars->players, TYPE_BROADCAST_LEAVE, &fields);
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
       // set the player with the current fd to is_active = false.
-      if (!players_arr[i].client->is_active)
+      if (!game_vars->players[i].client->is_active)
         continue;
-      if (players_arr[i].client->fd == fd) {
-        players_arr[i].is_ready = true;
+      if (game_vars->players[i].client->fd == fd) {
+        game_vars->players[i].is_ready = true;
         break;
       }
     }
-    wait_ready(game_vars->players, *(game_vars->players_count));
-    break; 
+    wait_ready(game_vars->players, &(game_vars->players_count));
+    break;
   case TYPE_RESP_TIMESTAMP:
     break;
   case TYPE_REQ_UPDATE_STATE:

@@ -16,10 +16,11 @@ void logger(int fd, log_type type, const char *msg, ...) {
   memset(buffer, 0, sizeof(buffer));
   time_t now = time(NULL);
   struct tm *tm_info = localtime(&now);
-  strftime(buffer, LOG_PREFIX_BUFFER_LEN, "%Y-%m-%d %H:%M:%S", tm_info);
+  strftime(buffer, LOG_PREFIX_BUFFER_LEN - 1, "%Y-%m-%d %H:%M:%S", tm_info);
+
   int len = strlen(buffer);
 
-  const char *type_prefix;
+  const char *type_prefix = "";
   switch (type) {
   case LOG_INFO:
     type_prefix = " [INFO] ";
@@ -49,6 +50,4 @@ void logger(int fd, log_type type, const char *msg, ...) {
   // also write the to a file
   write(fd, buffer, len);
   vdprintf(fd, msg, ap);
-
-  close(fd);
 }

@@ -1,4 +1,5 @@
 #include <arpa/inet.h> // for sockaddr_in, inet_pton()
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,7 @@
 #include "common/game.h"
 #include "common/player.h"
 #include "net/net.h"
+#include "utils/logger.h"
 #include "utils/util.h"
 
 void *listen_to_server(void *args);
@@ -27,8 +29,9 @@ int main() {
   if (init_networking(&game_vars) != 0)
     return 1;
 
-  printf("Connected to server! %s:%d (fd: %d)\n", SERVER_IP, SERVER_PORT,
-         game_vars.server_fd);
+  logger(1, LOG_INFO, "Connected to server! %s:%d (fd: %d)\n", SERVER_IP,
+         SERVER_PORT, game_vars.server_fd);
+  printf("mainloop\n");
 
   mainloop(&game_vars);
   return 0;
@@ -65,6 +68,10 @@ int mainloop(vars_t *game_vars) {
     }
 
     send_packet(game_vars->server_fd, type, &fields);
+    int flags = fcntl(game_vars->server_fd, F_GETFL);
+    fcntl(game_vars->server_fd, F_SETFL, flags | O_NONBLOCK);
+    recv_packet(game_vars->server_fd, &fields);
+    fcntl(game_vars->server_fd, F_SETFL, flags);
 
     // if (strncmp(input, "REQ_TIMESTAMP", len) == 0 ||
     // strncmp(input, "REQ_PING", len) == 0) {
