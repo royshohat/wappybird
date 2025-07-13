@@ -72,6 +72,7 @@ void main_loop(vars_t *game_vars) {
       if (game_vars->clients[i].fd > max_fd)
         max_fd = game_vars->clients[i].fd;
     }
+    printf("nfds: %d\n");
 
     // dont care about write and error fds
     // wait forever. (the reason this is in a thread)
@@ -82,7 +83,7 @@ void main_loop(vars_t *game_vars) {
       perror("select: ");
     }
     int ready_fd = -1;
-    for (int i = 0; i < max_fd + 1; i++) {
+    for (int i = 3; i < max_fd + 1; i++) {
       if (FD_ISSET(i, &sockets)) {
         ready_fd = i;
       }
@@ -118,6 +119,7 @@ void main_loop(vars_t *game_vars) {
         logger(1, LOG_INFO, "closing client with fd=%d", this_client->fd);
         // close client : remove client from array.
         this_client->is_active = false;
+        close(this_client->fd);
         continue; // back to select call
       } else if (ret < 0) {
         perror("recv: ");
@@ -151,10 +153,11 @@ int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
 
   // look where the free space is and accept.
   for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
-    if (!clients[i].is_active)
+    if (clients[i].is_active)
       continue;
     fd = accept(sockfd, (struct sockaddr *)&clients[i].addr,
                 &clients[i].addr_len);
+    printf("in accept:%d\n", fd);
     if (fd < 0) {
       perror("accept: ");
       return -1;

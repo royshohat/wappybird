@@ -35,7 +35,7 @@ void wait_ready(player_t *players, size_t *player_count) {
   if (*player_count < 2)
     return;
   // if all conditions are met, update game stage.
-  game_stage = STAGE_SYNC_TIME;
+  // game_stage = STAGE_SYNC_TIME;
 }
 
 uint32_t get_packet_size(packet_type type) {
