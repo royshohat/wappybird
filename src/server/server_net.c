@@ -103,12 +103,12 @@ int handle_packet(int fd, packet_type type, packet_fields *fields,
 
     break;
   case TYPE_REQ_LEAVE:
+    printf("GOT here\n");
     // player_p = client_to_player(this_client, game_vars->players);
     // if (player_p == NULL)
     //   return 1; // didnt join so cant leave.
     // fields.id = player_p->id;
     // broadcast(player_p, game_vars->players, TYPE_BROADCAST_LEAVE, &fields);
-    break;
     for (int i = 0; i < MAX_PLAYER_COUNT; i++) {
       // set the player with the current fd to is_active = false.
       if (!game_vars->players[i].client->is_active)

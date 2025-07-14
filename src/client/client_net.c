@@ -66,6 +66,7 @@ int send_packet(int fd, packet_type type, packet_fields *fields) {
 
   switch (type) {
   case TYPE_REQ_LEAVE:
+    printf("got here\n");
     break;
   case TYPE_REQ_JOIN:
     break;

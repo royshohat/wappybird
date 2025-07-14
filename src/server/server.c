@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <assert.h>
 #include <limits.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -72,7 +73,6 @@ void main_loop(vars_t *game_vars) {
       if (game_vars->clients[i].fd > max_fd)
         max_fd = game_vars->clients[i].fd;
     }
-    printf("nfds: %d\n");
 
     // dont care about write and error fds
     // wait forever. (the reason this is in a thread)
@@ -124,7 +124,9 @@ void main_loop(vars_t *game_vars) {
       } else if (ret < 0) {
         perror("recv: ");
       }
-      logger(1, LOG_INFO, "handling client request fd=%d", this_client->fd);
+      //logger(1, LOG_INFO, "handling client request fd=%d", this_client->fd);
+      printf("hi\n");
+      fflush(stdout);
       type = recv_packet(this_client->fd, &fields);
       handle_packet(this_client->fd, type, &fields, game_vars);
     }
@@ -139,7 +141,7 @@ int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
     if (*client_count_p == MAX_CLIENT_COUNT)
       printf("MAX_CLIENT_COUNT=%d REACHED.\n", MAX_CLIENT_COUNT);
     else
-      printf("Game already in progress!\n", MAX_CLIENT_COUNT);
+      printf("Game already in progress!\n");
 
     int flags = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
@@ -152,23 +154,25 @@ int accept_client(int sockfd, client_t *clients, size_t *client_count_p) {
   }
 
   // look where the free space is and accept.
-  for (int i = 0; i < MAX_CLIENT_COUNT; i++) {
-    if (clients[i].is_active)
-      continue;
-    fd = accept(sockfd, (struct sockaddr *)&clients[i].addr,
-                &clients[i].addr_len);
-    printf("in accept:%d\n", fd);
-    if (fd < 0) {
-      perror("accept: ");
-      return -1;
-    }
-    clients[i].fd = fd;
-    clients[i].is_active = true;
-    clients[i].offset_ms = 0; // default value. change later;
-
-    printf("Got A Conncection! (ip:%s, fd: %d)\n",
-           inet_ntoa(clients[i].addr.sin_addr), fd);
+  int i=0;
+  for (;i < MAX_CLIENT_COUNT; i++) 
+    if (!clients[i].is_active)
+      break;
+  assert(i!=MAX_CLIENT_COUNT);
+  fd = accept(sockfd, (struct sockaddr *)&clients[i].addr,
+              &clients[i].addr_len);
+  printf("in accept:%d\n", fd);
+  if (fd < 0) {
+    perror("accept: ");
+    return -1;
   }
+  clients[i].fd = fd;
+  clients[i].is_active = true;
+  clients[i].offset_ms = 0; // default value. change later;
+
+  printf("Got A Conncection! (ip:%s, fd: %d)\n",
+          inet_ntoa(clients[i].addr.sin_addr), fd);
+
 
   (*client_count_p)++;
 
